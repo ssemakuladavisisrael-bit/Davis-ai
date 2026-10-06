@@ -580,11 +580,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       // Fetch speech audio if available
       const audioData = await fetchSceneAudio(scene.narration, voiceName);
       let audioDuration = scene.seconds;
+      let decoded: AudioBuffer | null = null;
 
       if (audioData && audioCtx && !stopLivePlayRef.current) {
         try {
-          const decoded = await audioCtx.decodeAudioData(audioData);
-          audioDuration = Math.max(decoded.duration + 0.5, 3.5);
+          decoded = await audioCtx.decodeAudioData(audioData);
+          audioDuration = Math.max(scene.seconds, decoded.duration + 0.5);
           const source = audioCtx.createBufferSource();
           source.buffer = decoded;
           source.connect(audioCtx.destination);
@@ -600,7 +601,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         if (stopLivePlayRef.current) break;
         const elapsed = performance.now() - startTime;
         const fraction = Math.min(1, elapsed / totalMs);
-        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title);
+        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title, false, getAudioTalkLevel(decoded, elapsed / 1000));
         await new Promise((r) => requestAnimationFrame(r));
       }
     }
