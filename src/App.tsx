@@ -21,7 +21,8 @@ import { ChatInput } from './components/ChatInput';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
 import { VideoStudio } from './components/VideoStudio';
-import { PromptImportModal, ImportedVideoConfig } from './components/PromptImportModal';
+import { PromptImportModal } from './components/PromptImportModal';
+import type { ImportedVideoConfig } from './components/PromptImportModal';
 
 const STORAGE_KEY_CONVOS = 'davis_ai_conversations';
 const STORAGE_KEY_TONE = 'davis_ai_tone';
