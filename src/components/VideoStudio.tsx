@@ -700,17 +700,18 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       const scene = plan.scenes[i];
       const audioBuffer = audioBuffers[i];
       
-      // Determine duration of scene: match audio duration or plan seconds
-      const sceneDurationSec = audioBuffer ? Math.max(audioBuffer.duration + 0.6, 3.5) : scene.seconds;
+      // Always use the planned duration. Never let TTS length extend the finished video.
+      const sceneDurationSec = Math.max(1, Number(scene.seconds) || 1);
       setRenderStatusText(`Rendering Scene ${i + 1} / ${totalScenes}: "${scene.title}"...`);
 
-      // Play audio through audio destination
+      // Play audio through the destination and hard-stop it at the scene boundary.
       if (audioBuffer && audioCtx! && audioDest) {
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioDest);
         source.connect(audioCtx.destination);
         source.start();
+        source.stop(audioCtx.currentTime + Math.min(sceneDurationSec, audioBuffer.duration));
       }
 
       // Render frames smoothly for scene duration
@@ -732,7 +733,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     // Render closing scene
     if (!stopRenderingRef.current) {
       setRenderStatusText('Finalizing video outro & closing statement...');
-      const closingDurationSec = closingBuffer ? Math.max(closingBuffer.duration + 0.6, 3.0) : 3.5;
+      const closingDurationSec = Math.max(1, Number((plan as any).closingSeconds) || 5);
 
       if (closingBuffer && audioCtx! && audioDest) {
         const source = audioCtx.createBufferSource();
@@ -740,6 +741,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         source.connect(audioDest);
         source.connect(audioCtx.destination);
         source.start();
+        source.stop(audioCtx.currentTime + Math.min(closingDurationSec, closingBuffer.duration));
       }
 
       const closeSceneObj: Scene = {
@@ -789,6 +791,19 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     const finalBlob = new Blob(chunks, { type: actualMime });
 
     // Validate the produced recording before exposing it in the player.
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    const probeUrl = URL.createObjectURL(finalBlob);
+    const playable = await new Promise<boolean>((resolve) => {
+      const timeout = window.setTimeout(() => resolve(false), 5000);
+      probe.onloadedmetadata = () => { window.clearTimeout(timeout); resolve(Number.isFinite(probe.duration) && probe.duration > 0); };
+      probe.onerror = () => { window.clearTimeout(timeout); resolve(false); };
+      probe.src = probeUrl;
+    });
+    URL.revokeObjectURL(probeUrl);
+    if (!playable) {
+      throw new Error('The browser created a video file that cannot be decoded. Please retry in Chrome; no broken file was loaded.');
+    }
     if (finalBlob.size < 1024) {
       throw new Error('The recorded video is too small to be valid. Please retry the render.');
     }
