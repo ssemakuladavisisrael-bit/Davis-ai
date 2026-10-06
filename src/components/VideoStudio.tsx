@@ -864,19 +864,31 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsPlayingLive(false);
   };
 
-  // Read actual encoded duration so short/corrupt mobile exports are rejected.
-  const getBlobDurationSeconds = async (blob: Blob): Promise<number> => {
+  // Mobile browsers may not expose WebM duration metadata immediately.
+  // Return null when metadata is unavailable instead of rejecting a valid recording.
+  const getBlobDurationSeconds = async (blob: Blob): Promise<number | null> => {
     const url = URL.createObjectURL(blob);
-    return await new Promise<number>((resolve, reject) => {
+    return await new Promise<number | null>((resolve) => {
       const video = document.createElement('video');
       video.preload = 'metadata';
+      let settled = false;
+      const finish = (value: number | null) => {
+        if (settled) return;
+        settled = true;
+        URL.revokeObjectURL(url);
+        resolve(value);
+      };
       video.onloadedmetadata = () => {
         const duration = video.duration;
-        URL.revokeObjectURL(url);
-        if (!Number.isFinite(duration) || duration <= 0) reject(new Error('The exported video has no readable duration.'));
-        else resolve(duration);
+        if (Number.isFinite(duration) && duration > 0) finish(duration);
+        else {
+          video.onloadeddata = () => {
+            const d = video.duration;
+            finish(Number.isFinite(d) && d > 0 ? d : null);
+          };
+        }
       };
-      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('The exported video could not be read after recording.')); };
+      video.onerror = () => finish(null);
       video.src = url;
     });
   };
@@ -1106,9 +1118,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     const expectedDurationSec = plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds ?? 4);
     const minimumAcceptableDurationSec = Math.max(5, expectedDurationSec * 0.90);
 
-    setRenderStatusText('Checking recorded video duration…');
+    setRenderStatusText('Checking recorded video…');
     const recordedDurationSec = await getBlobDurationSeconds(recordedBlob);
-    if (recordedDurationSec < minimumAcceptableDurationSec) {
+    if (recordedDurationSec !== null && recordedDurationSec < minimumAcceptableDurationSec) {
       setIsRendering(false);
       throw new Error(
         'Export stopped because the recording was only ' + recordedDurationSec.toFixed(1) +
