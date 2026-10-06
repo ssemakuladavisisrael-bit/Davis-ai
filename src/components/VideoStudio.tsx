@@ -116,12 +116,22 @@ export function VideoStudio({ isOpen, onClose }: Props) {
     if (line) ctx.fillText(line, x, currentY);
   };
 
-  const generateRealisticVideo = async (scene: Scene) => {
-    if (realisticBusy) return;
+  const generateRealisticVideo = async () => {
+    if (realisticBusy || !plan) return;
     setRealisticBusy(true); setError('');
     try {
-      const response = await fetch('/api/video/realistic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: `Photorealistic cinematic educational video. Topic: ${topic}. Audience: ${audience}. Scene: ${scene.title}. ${scene.visual}. Natural movement, realistic lighting, documentary cinematography, believable people and environment.`, aspectRatio: '16:9', resolution: '720p' }) });
-      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Video generation failed.'); }
+      const storyboard = plan.scenes.map((s, i) => `Scene ${i + 1}: ${s.title}. Visual: ${s.visual}. Narration/audio intent: ${s.narration}.`).join(' ');
+      const response = await fetch('/api/video/long', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Create a photorealistic cinematic educational video about ${topic}. Audience: ${audience}. Maintain visual continuity, realistic people and environments, natural movement, professional documentary cinematography and coherent transitions. Storyboard: ${storyboard}. Opening hook: ${plan.hook}. Closing: ${plan.closing}.`,
+          duration: Number(duration),
+          aspectRatio: '16:9',
+          resolution: '720p',
+        }),
+      });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Long video generation failed.'); }
       const blob = await response.blob();
       if (realisticUrl) URL.revokeObjectURL(realisticUrl);
       setRealisticUrl(URL.createObjectURL(blob));
@@ -294,9 +304,9 @@ export function VideoStudio({ isOpen, onClose }: Props) {
                 <canvas ref={canvasRef} width={1280} height={720} className="hidden" />
 
                 <div className="rounded-2xl bg-white border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
-                  <button onClick={() => generateRealisticVideo(plan.scenes[0])} disabled={realisticBusy} className="flex-1 rounded-xl bg-indigo-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                  <button onClick={generateRealisticVideo} disabled={realisticBusy} className="flex-1 rounded-xl bg-indigo-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
                     {realisticBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {realisticBusy ? 'Generating realistic clip…' : 'Generate realistic AI clip'}
+                    {realisticBusy ? 'Generating realistic video…' : 'Generate full realistic AI video'}
                   </button>
 
                   {!recording ? (
