@@ -233,7 +233,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     total: number,
     timeFraction: number,
     videoTitle: string,
-    isClosing = false
+    isClosing = false,
+    talkLevel = 0
   ) => {
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
@@ -247,11 +248,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       gradient.addColorStop(1, '#1e1b4b');
     } else {
       const palette = [
-        ['#0f172a', '#1e1b4b', '#312e81'], // Indigo Night
-        ['#091e3a', '#064e3b', '#047857'], // Emerald Deep
-        ['#18181b', '#3b0764', '#581c87'], // Royal Violet
-        ['#0f172a', '#1e3a8a', '#1d4ed8'], // Ocean Blue
-        ['#1e293b', '#701a75', '#86198f'], // Magenta Glow
+        ['#fff7ed', '#ffedd5', '#fef3c7'],
+        ['#ecfeff', '#cffafe', '#dbeafe'],
+        ['#f0fdf4', '#dcfce7', '#d1fae5'],
+        ['#fdf4ff', '#fae8ff', '#ede9fe'],
+        ['#eff6ff', '#dbeafe', '#e0e7ff']
       ][index % 5];
       gradient.addColorStop(0, palette[0]);
       gradient.addColorStop(0.5, palette[1]);
@@ -268,7 +269,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.scale(scaleFactor, scaleFactor);
     ctx.translate(-w / 2, -h / 2);
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.10)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(w - 140, 160, 260, 0, Math.PI * 2);
@@ -281,7 +282,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.restore();
 
     // Subtle particle stars
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillStyle = 'rgba(99, 102, 241, 0.16)';
     for (let p = 0; p < 18; p++) {
       const px = ((p * 73 + index * 45) % w);
       const py = ((p * 47 + index * 83) % h);
@@ -291,63 +292,63 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
 
     // Top Brand Badge
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '700 24px system-ui, sans-serif';
+    ctx.fillStyle = '#172033';
+    ctx.font = '800 24px system-ui, sans-serif';
     ctx.fillText('DAVIS AI', 64, 60);
 
-    ctx.fillStyle = '#818cf8';
-    ctx.font = '600 13px system-ui, sans-serif';
+    ctx.fillStyle = '#6366f1';
+    ctx.font = '700 13px system-ui, sans-serif';
     ctx.fillText('VIDEO STUDIO', 180, 58);
 
     if (!isClosing) {
       // Animated cartoon presenter
-      drawExplainingCartoon(ctx, w - 340, 85, index, scene.title, timeFraction);
+      drawExplainingCartoon(ctx, w - 350, 78, index, scene.title, timeFraction, talkLevel);
 
       // Scene indicator pill
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
       ctx.beginPath();
       ctx.roundRect(64, 88, 140, 28, 14);
       ctx.fill();
 
-      ctx.fillStyle = '#a5b4fc';
+      ctx.fillStyle = '#4f46e5';
       ctx.font = '700 12px system-ui, sans-serif';
       ctx.fillText(`SCENE ${index + 1} OF ${total}`, 80, 106);
 
       // Scene Title
       ctx.fillStyle = '#ffffff';
-      ctx.font = '700 38px system-ui, sans-serif';
+      ctx.font = '800 38px system-ui, sans-serif';
       wrapCanvasText(ctx, scene.title, 64, 165, w - 420, 48, 2);
 
       // Visual Direction Cue box
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
       ctx.beginPath();
       ctx.roundRect(64, 265, w - 128, 145, 16);
       ctx.fill();
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.16)';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = '#fde047';
+      ctx.fillStyle = '#ea580c';
       ctx.font = '700 12px system-ui, sans-serif';
       ctx.fillText('VISUAL ON SCREEN', 88, 296);
 
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillStyle = '#334155';
       ctx.font = '400 22px system-ui, sans-serif';
       wrapCanvasText(ctx, scene.visual, 88, 335, w - 176, 32, 2);
 
       // Live Narration Subtitle Box (bottom)
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
       ctx.beginPath();
       ctx.roundRect(64, 440, w - 128, 190, 16);
       ctx.fill();
 
-      ctx.fillStyle = '#818cf8';
-      ctx.font = '700 12px system-ui, sans-serif';
-      ctx.fillText('NARRATION & LESSON SCRIPT', 88, 472);
+      ctx.fillStyle = '#4f46e5';
+      ctx.font = '800 12px system-ui, sans-serif';
+      ctx.fillText('WHAT THE TEACHER SAYS', 88, 472);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '500 23px system-ui, sans-serif';
+      ctx.fillStyle = '#172033';
+      ctx.font = '600 23px system-ui, sans-serif';
       wrapCanvasText(ctx, `"${scene.narration}"`, 88, 510, w - 176, 34, 3);
     } else {
       // Closing Frame
@@ -393,11 +394,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     y: number,
     sceneIndex: number,
     message: string,
-    timeFraction = 0
+    timeFraction = 0,
+    talkLevel = 0
   ) => {
     ctx.save();
 
-    const talk = Math.max(0, Math.sin(timeFraction * Math.PI * 22));
+    const talk = Math.max(0.05, Math.min(1, talkLevel || Math.max(0, Math.sin(timeFraction * Math.PI * 22))));
     const bob = Math.sin(timeFraction * Math.PI * 4) * 3;
     const blink = Math.sin(timeFraction * Math.PI * 7 + sceneIndex) > 0.96;
     y += bob;
@@ -528,6 +530,27 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       }
     }
     if (line) ctx.fillText(line, x, currentY);
+  };
+
+
+  // Estimate speech energy from the generated voiceover so mouth movement follows the narration.
+  const getAudioTalkLevel = (buffer: AudioBuffer | null, elapsedSeconds: number) => {
+    if (!buffer) return 0;
+    const center = Math.max(0, Math.min(buffer.duration, elapsedSeconds));
+    const radius = 0.035;
+    const start = Math.max(0, Math.floor((center - radius) * buffer.sampleRate));
+    const end = Math.min(buffer.length, Math.ceil((center + radius) * buffer.sampleRate));
+    if (end <= start) return 0;
+    const step = Math.max(1, Math.floor((end - start) / 180));
+    let sum = 0;
+    let count = 0;
+    for (let i = start; i < end; i += step) {
+      let sample = 0;
+      for (let ch = 0; ch < buffer.numberOfChannels; ch++) sample += Math.abs(buffer.getChannelData(ch)[i] || 0);
+      sum += sample / buffer.numberOfChannels;
+      count++;
+    }
+    return Math.min(1, Math.max(0.05, (sum / Math.max(1, count)) * 9));
   };
 
   // Instant Interactive Live Presentation Player (0 second waiting!)
