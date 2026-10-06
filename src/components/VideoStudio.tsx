@@ -1137,60 +1137,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       );
     }
 
-    let finalBlob = recordedBlob;
-    let finalType: 'mp4' | 'webm' = isDirectMp4 ? 'mp4' : 'webm';
-
-    // If direct MP4 is unsupported, convert the fallback recording to standard H.264/AAC MP4.
-    if (!isDirectMp4) {
-      setIsConvertingMp4(true);
-      setRenderStatusText('Converting fallback recording to MP4…');
-      try {
-        const ffmpeg = ffmpegRef.current;
-        if (!ffmpegLoadedRef.current) {
-          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-          });
-          ffmpegLoadedRef.current = true;
-        }
-
-        await ffmpeg.writeFile('input.webm', await fetchFile(recordedBlob));
-        await ffmpeg.exec([
-          '-i', 'input.webm',
-          '-c:v', 'libx264',
-          '-preset', 'veryfast',
-          '-pix_fmt', 'yuv420p',
-          '-c:a', 'aac',
-          '-b:a', '128k',
-          '-movflags', '+faststart',
-          'output.mp4',
-        ]);
-        const mp4Data = await ffmpeg.readFile('output.mp4');
-        finalBlob = new Blob([mp4Data.buffer as ArrayBuffer], { type: 'video/mp4' });
-        finalType = 'mp4';
-        const finalDurationSec = await getBlobDurationSeconds(finalBlob);
-        // Some mobile browsers can still hide MP4 duration metadata. Only reject
-        // when a reliable duration is actually available and is genuinely too short.
-        if (finalDurationSec !== null && finalDurationSec < minimumAcceptableDurationSec) {
-          throw new Error(
-            'MP4 conversion produced only ' + finalDurationSec.toFixed(1) +
-            's; expected about ' + expectedDurationSec + 's. The file was not made available for download.'
-          );
-        }
-
-        try {
-          await ffmpeg.deleteFile('input.webm');
-          await ffmpeg.deleteFile('output.mp4');
-        } catch {}
-      } catch (conversionError) {
-        console.error('MP4 conversion failed:', conversionError);
-        setIsRendering(false);
-        throw new Error('MP4 conversion failed on this device. Please try exporting again or use a newer Chrome/Edge browser.');
-      } finally {
-        setIsConvertingMp4(false);
-      }
-    }
+    const finalBlob = recordedBlob;
+    const finalType: 'mp4' | 'webm' = 'webm';
 
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     const newBlobUrl = URL.createObjectURL(finalBlob);
@@ -1198,11 +1146,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setVideoUrl(newBlobUrl);
     setIsRendering(false);
     setRenderProgress(100);
-    if (finalType !== 'mp4') {
-      setIsRendering(false);
-      throw new Error('Davis AI could not produce the required MP4 file on this device.');
-    }
-    setRenderStatusText('2-minute MP4 video generated successfully — ready to download.');
+    setRenderStatusText('2-minute WebM video generated successfully — ready to download.');
   };
 
   const handleStopRendering = () => {
