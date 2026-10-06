@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { 
   Film, 
   Sparkles, 
@@ -91,6 +93,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderStatusText, setRenderStatusText] = useState('');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoFileType, setVideoFileType] = useState<'mp4' | 'webm'>('mp4');
+  const [isConvertingMp4, setIsConvertingMp4] = useState(false);
   const [error, setError] = useState('');
 
   // Veo State
@@ -107,6 +111,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const stopRenderingRef = useRef(false);
   const stopLivePlayRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const ffmpegRef = useRef(new FFmpeg());
+  const ffmpegLoadedRef = useRef(false);
 
   useEffect(() => {
     if (initialTopic && initialTopic !== topic && !initialConfig?.topic) {
@@ -964,12 +970,15 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const combinedStream = new MediaStream(combinedTracks);
 
+    // Prefer MP4 when the current browser can record it. If it cannot,
+    // record WebM first and automatically transcode it to WhatsApp-friendly MP4 below.
     const candidates = [
+      'video/mp4;codecs=avc1.640028,mp4a.40.2',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
-      'video/webm',
-      'video/mp4;codecs=avc1,mp4a.40.2',
-      'video/mp4'
+      'video/webm'
     ];
     const mime = candidates.find((c) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) || 'video/webm';
 
@@ -1066,13 +1075,61 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
 
     if (chunks.length === 0) throw new Error('No video data was recorded. Please try rendering again.');
-    const finalBlob = new Blob(chunks, { type: mime });
+    const recordedBlob = new Blob(chunks, { type: mime });
+    let finalBlob = recordedBlob;
+    let finalType: 'mp4' | 'webm' = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+
+    // WhatsApp is much more reliable with an H.264/AAC MP4. Browsers that
+    // cannot record MP4 directly are converted locally with ffmpeg.wasm.
+    if (finalType === 'webm') {
+      setIsConvertingMp4(true);
+      setRenderStatusText('Converting video to WhatsApp-compatible MP4…');
+      try {
+        const ffmpeg = ffmpegRef.current;
+        if (!ffmpegLoadedRef.current) {
+          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+          await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          });
+          ffmpegLoadedRef.current = true;
+        }
+
+        await ffmpeg.writeFile('input.webm', await fetchFile(recordedBlob));
+        await ffmpeg.exec([
+          '-i', 'input.webm',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          'output.mp4',
+        ]);
+        const mp4Data = await ffmpeg.readFile('output.mp4');
+        finalBlob = new Blob([mp4Data.buffer as ArrayBuffer], { type: 'video/mp4' });
+        finalType = 'mp4';
+        try {
+          await ffmpeg.deleteFile('input.webm');
+          await ffmpeg.deleteFile('output.mp4');
+        } catch {}
+      } catch (conversionError) {
+        console.error('MP4 conversion failed:', conversionError);
+        throw new Error('MP4 conversion failed on this device. Please try exporting again or use a newer Chrome/Edge browser.');
+      } finally {
+        setIsConvertingMp4(false);
+      }
+    }
+
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     const newBlobUrl = URL.createObjectURL(finalBlob);
+    setVideoFileType(finalType);
     setVideoUrl(newBlobUrl);
     setIsRendering(false);
     setRenderProgress(100);
-    setRenderStatusText('Video file generated successfully!');
+    setRenderStatusText(finalType === 'mp4'
+      ? 'MP4 video generated successfully — ready for WhatsApp!'
+      : 'Video file generated successfully!');
   };
 
   const handleStopRendering = () => {
@@ -1542,7 +1599,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
                           <Tv className="h-4 w-4 text-emerald-400" />
-                          <span>{voiceoverReady ? 'Export Video File (HD 16:9 WebM)' : 'Generate Voiceover First'}</span>
+                          <span>{voiceoverReady ? 'Export Video File (HD 16:9 MP4)' : 'Generate Voiceover First'}</span>
                         </button>
                       ) : (
                         <button
@@ -1557,7 +1614,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                       {videoUrl && (
                         <a
                           href={videoUrl}
-                          download={`${plan.title.replace(/\s+/g, '-').toLowerCase() || 'davis-ai-video'}.webm`}
+                          download={`${plan.title.replace(/\s+/g, '-').toLowerCase() || 'davis-ai-video'}.${videoFileType}`}
                           className="w-full sm:w-auto px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                         >
                           <Download className="h-4 w-4" />
@@ -1603,7 +1660,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                         src={videoUrl}
                         title={plan.title}
                         duration={plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds || 4)}
-                        downloadFilename={`${plan.title.replace(/\s+/g, '-').toLowerCase() || 'davis-ai-video'}.webm`}
+                        downloadFilename={`${plan.title.replace(/\s+/g, '-').toLowerCase() || 'davis-ai-video'}.${videoFileType}`}
                       />
                     </div>
                   )}
