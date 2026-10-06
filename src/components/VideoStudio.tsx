@@ -864,7 +864,24 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsPlayingLive(false);
   };
 
-  // Full Video File Exporter (WebM / MP4) with Audio Mixing & Metadata Fix
+  // Read actual encoded duration so short/corrupt mobile exports are rejected.
+  const getBlobDurationSeconds = async (blob: Blob): Promise<number> => {
+    const url = URL.createObjectURL(blob);
+    return await new Promise<number>((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        URL.revokeObjectURL(url);
+        if (!Number.isFinite(duration) || duration <= 0) reject(new Error('The exported video has no readable duration.'));
+        else resolve(duration);
+      };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('The exported video could not be read after recording.')); };
+      video.src = url;
+    });
+  };
+
+  // Full Video File Exporter: stable WebM first, then validated H.264/AAC MP4.
   const handleRenderVideo = async () => {
     if (!plan || !canvasRef.current || isRendering) return;
     const canvas = canvasRef.current;
@@ -970,20 +987,22 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const combinedStream = new MediaStream(combinedTracks);
 
-    // Prefer MP4 when the current browser can record it. If it cannot,
-    // record WebM first and automatically transcode it to WhatsApp-friendly MP4 below.
+    // Always record WebM first. Direct browser MP4 recording is inconsistent across Android browsers.
     const candidates = [
-      'video/mp4;codecs=avc1.640028,mp4a.40.2',
-      'video/mp4;codecs=avc1,mp4a.40.2',
-      'video/mp4',
-      'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9,opus',
       'video/webm'
     ];
     const mime = candidates.find((c) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) || 'video/webm';
 
     const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
     const chunks: Blob[] = [];
+    let recorderError: Error | null = null;
+
+    recorder.onerror = (event: Event) => {
+      const mediaError = (event as any)?.error;
+      recorderError = new Error(mediaError?.message || 'The browser stopped recording unexpectedly.');
+    };
 
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunks.push(e.data);
@@ -1075,12 +1094,25 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
 
     if (chunks.length === 0) throw new Error('No video data was recorded. Please try rendering again.');
-    const recordedBlob = new Blob(chunks, { type: mime });
-    let finalBlob = recordedBlob;
-    let finalType: 'mp4' | 'webm' = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    if (recorderError) throw recorderError;
 
-    // WhatsApp is much more reliable with an H.264/AAC MP4. Browsers that
-    // cannot record MP4 directly are converted locally with ffmpeg.wasm.
+    const recordedBlob = new Blob(chunks, { type: mime });
+    const expectedDurationSec = plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds ?? 4);
+    const minimumAcceptableDurationSec = Math.max(5, expectedDurationSec * 0.90);
+
+    setRenderStatusText('Checking recorded video duration…');
+    const recordedDurationSec = await getBlobDurationSeconds(recordedBlob);
+    if (recordedDurationSec < minimumAcceptableDurationSec) {
+      throw new Error(
+        'Export stopped because the recording was only ' + recordedDurationSec.toFixed(1) +
+        's; the video should be about ' + expectedDurationSec + 's. Keep this page open and the screen awake during export, then try again.'
+      );
+    }
+
+    let finalBlob = recordedBlob;
+    let finalType: 'mp4' | 'webm' = 'webm';
+
+    // Convert the validated WebM to WhatsApp-friendly H.264/AAC MP4.
     if (finalType === 'webm') {
       setIsConvertingMp4(true);
       setRenderStatusText('Converting video to WhatsApp-compatible MP4…');
@@ -1109,6 +1141,14 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         const mp4Data = await ffmpeg.readFile('output.mp4');
         finalBlob = new Blob([mp4Data.buffer as ArrayBuffer], { type: 'video/mp4' });
         finalType = 'mp4';
+        const finalDurationSec = await getBlobDurationSeconds(finalBlob);
+        if (finalDurationSec < minimumAcceptableDurationSec) {
+          throw new Error(
+            'MP4 conversion produced only ' + finalDurationSec.toFixed(1) +
+            's; expected about ' + expectedDurationSec + 's. The file was not made available for download.'
+          );
+        }
+
         try {
           await ffmpeg.deleteFile('input.webm');
           await ffmpeg.deleteFile('output.mp4');
