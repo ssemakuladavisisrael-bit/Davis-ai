@@ -18,7 +18,7 @@ export function RealisticVideoButton({ prompt }: Props) {
     setUrl(null);
 
     try {
-      const response = await fetch(apiUrl('/api/video/realistic', {
+      const response = await fetch(apiUrl('/api/video/realistic'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt.trim(), aspectRatio: '16:9', resolution: '720p' }),
