@@ -1176,6 +1176,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     '5 Essential Prompting Strategies for AI',
   ];
 
+  // All Hooks are declared above this visibility guard so their order never changes between renders.
   if (!isOpen) return null;
 
   return (
