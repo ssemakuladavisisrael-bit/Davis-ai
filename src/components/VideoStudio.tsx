@@ -36,6 +36,7 @@ export type VideoPlan = {
   scenes: Scene[];
   closing: string;
   closingSeconds?: number;
+  closingAudioBase64?: string;
 };
 
 export type VideoStudioConfig = {
