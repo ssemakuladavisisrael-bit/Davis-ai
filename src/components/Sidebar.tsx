@@ -14,7 +14,7 @@ import {
   ShieldCheck, 
   AlertCircle 
 } from 'lucide-react';
-import { Conversation, ServerStatus } from '../types';
+import { Conversation, ServerStatus, ModelChoice } from '../types';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -28,6 +28,7 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onOpenHelp: () => void;
   serverStatus: ServerStatus | null;
+  model: ModelChoice;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,6 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   onOpenHelp,
   serverStatus,
+  model,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -221,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="font-bold text-sm text-white flex items-center gap-1.5">
                 <span>Davis AI</span>
                 <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-indigo-500/20 text-indigo-300 rounded border border-indigo-500/30">
-                  Gemini 3.8
+                  {model === 'gemini-3.1-flash-lite' ? '⚡ Flash Lite' : '🧠 3.8 Flash'}
                 </span>
               </div>
               <div className="text-[11px] text-slate-400">Conversational Assistant</div>
@@ -341,7 +343,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${serverStatus?.hasApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               <span className="font-medium">
-                {serverStatus?.hasApiKey ? 'Gemini 3.8 Connected' : 'Setup Gemini Key'}
+                {serverStatus?.hasApiKey ? `${model === 'gemini-3.1-flash-lite' ? 'Flash Lite' : 'Flash 3.8'} Active` : 'Setup Gemini Key'}
               </span>
             </div>
             <ChevronRight className="w-3.5 h-3.5 opacity-60" />

@@ -7,9 +7,11 @@ import {
   HelpCircle, 
   Sliders, 
   RotateCcw,
-  ShieldAlert
+  ShieldAlert,
+  Zap,
+  Brain
 } from 'lucide-react';
-import { Conversation, Message, ServerStatus, PersonaTone } from './types';
+import { Conversation, Message, ServerStatus, PersonaTone, ModelChoice } from './types';
 import { Sidebar } from './components/Sidebar';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatMessage } from './components/ChatMessage';
@@ -21,6 +23,7 @@ import { VideoStudio } from './components/VideoStudio';
 const STORAGE_KEY_CONVOS = 'davis_ai_conversations';
 const STORAGE_KEY_TONE = 'davis_ai_tone';
 const STORAGE_KEY_CUSTOM_INSTR = 'davis_ai_custom_instruction';
+const STORAGE_KEY_MODEL = 'davis_ai_model';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>(() => {
@@ -46,6 +49,10 @@ export default function App() {
 
   const [tone, setTone] = useState<PersonaTone>(() => {
     return (localStorage.getItem(STORAGE_KEY_TONE) as PersonaTone) || 'balanced';
+  });
+
+  const [model, setModel] = useState<ModelChoice>(() => {
+    return (localStorage.getItem(STORAGE_KEY_MODEL) as ModelChoice) || 'gemini-3.1-flash-lite';
   });
 
   const [customInstruction, setCustomInstruction] = useState<string>(() => {
@@ -96,6 +103,10 @@ export default function App() {
   }, [tone]);
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_MODEL, model);
+  }, [model]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY_CUSTOM_INSTR, customInstruction);
   }, [customInstruction]);
 
@@ -136,7 +147,6 @@ export default function App() {
   }, [isStreaming, activeConversation?.messages]);
 
   const handleNewChat = () => {
-    // If current conversation already has 0 messages, just stay on it
     if (activeConversation && activeConversation.messages.length === 0) {
       return;
     }
@@ -215,7 +225,6 @@ Guidelines:
     // Auto-create conversation if none exists
     if (!targetConvId || !activeConversation) {
       const newId = `conv-${Date.now()}`;
-      // Clean title from prompt (up to 32 chars)
       const cleanTitle = textToSend.trim().slice(0, 32) + (textToSend.trim().length > 32 ? '...' : '');
       const newConv: Conversation = {
         id: newId,
@@ -230,7 +239,6 @@ Guidelines:
       targetMessages = [];
     } else {
       targetMessages = [...activeConversation.messages];
-      // Update title if it was "New Chat" and this is the first message
       if (activeConversation.messages.length === 0 || activeConversation.title === 'New Chat') {
         const cleanTitle = textToSend.trim().slice(0, 32) + (textToSend.trim().length > 32 ? '...' : '');
         handleRenameConversation(targetConvId, cleanTitle);
@@ -271,9 +279,11 @@ Guidelines:
     setIsStreaming(true);
     abortControllerRef.current = new AbortController();
 
-    // Prepare full conversation history for multi-turn model context
-    // We send all turns up to the new user message
-    const historyPayload = [...targetMessages, userMessage].map((m) => ({
+    // Prepare clean history for multi-turn model context (skip errors and blanks)
+    const validHistory = targetMessages.filter(
+      (m) => !m.isError && typeof m.content === 'string' && m.content.trim() !== ''
+    );
+    const historyPayload = [...validHistory, userMessage].map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -288,6 +298,7 @@ Guidelines:
           messages: historyPayload,
           systemInstruction: getSystemInstruction(),
           temperature: tone === 'creative' ? 0.9 : tone === 'precise' ? 0.3 : 0.7,
+          model,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -312,7 +323,6 @@ Guidelines:
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        // Keep the last partial line in buffer
         buffer = lines.pop() || '';
 
         for (const line of lines) {
@@ -331,7 +341,6 @@ Guidelines:
             }
             if (parsed.text) {
               accumulatedText += parsed.text;
-              // Update assistant message text in place
               setConversations((prev) =>
                 prev.map((c) => {
                   if (c.id !== targetConvId) return c;
@@ -363,7 +372,7 @@ Guidelines:
                 m.id === assistantPlaceholderId
                   ? {
                       ...m,
-                      content: "I apologize, but I couldn't generate a response. Please verify that your Gemini API key is active.",
+                      content: "I apologize, but I couldn't generate a response. Please verify that your Gemini API key is active or try again.",
                       isError: true,
                     }
                   : m
@@ -402,16 +411,13 @@ Guidelines:
   const handleRetryLastTurn = () => {
     if (!activeConversation || activeConversation.messages.length < 2 || isStreaming) return;
 
-    // Find the last user message
     const msgs = [...activeConversation.messages];
-    // Remove the last assistant message (error or completed)
     if (msgs[msgs.length - 1].role === 'assistant') {
       msgs.pop();
     }
     const lastUserMessage = msgs.pop();
     if (!lastUserMessage || lastUserMessage.role !== 'user') return;
 
-    // Update conversation with truncated messages
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversation.id
@@ -420,7 +426,6 @@ Guidelines:
       )
     );
 
-    // Re-send the prompt
     handleSendMessage(lastUserMessage.content);
   };
 
@@ -439,6 +444,7 @@ Guidelines:
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
         serverStatus={serverStatus}
+        model={model}
       />
 
       {/* Main Chat Workspace */}
@@ -456,13 +462,43 @@ Guidelines:
             <div className="flex items-center gap-2">
               <span className="font-bold text-slate-900 text-sm hidden sm:inline">Davis AI</span>
               <span className="text-slate-300 hidden sm:inline">/</span>
-              <span className="text-xs font-medium text-slate-600 truncate max-w-[200px] sm:max-w-xs">
+              <span className="text-xs font-medium text-slate-600 truncate max-w-[160px] sm:max-w-xs">
                 {activeConversation?.title || 'New Conversation'}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Quick Model Selector Pill */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setModel('gemini-3.1-flash-lite')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
+                  model === 'gemini-3.1-flash-lite'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Ultra Fast Response (~0.8s)"
+              >
+                <Zap className="w-3 h-3 text-amber-500" />
+                <span>Fast Lite</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModel('gemini-3.8-flash')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
+                  model === 'gemini-3.8-flash'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Deep Reasoning"
+              >
+                <Brain className="w-3 h-3 text-indigo-600" />
+                <span className="hidden sm:inline">Reasoning 3.8</span>
+              </button>
+            </div>
+
             {!serverStatus?.hasApiKey && (
               <button
                 onClick={() => setIsHelpOpen(true)}
@@ -578,6 +614,8 @@ Guidelines:
         onClose={() => setIsSettingsOpen(false)}
         tone={tone}
         onToneChange={setTone}
+        model={model}
+        onModelChange={setModel}
         customInstruction={customInstruction}
         onCustomInstructionChange={setCustomInstruction}
         onClearAllConversations={handleClearAllConversations}

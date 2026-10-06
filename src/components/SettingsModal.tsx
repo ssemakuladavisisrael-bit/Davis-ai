@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { X, Sliders, Trash2, Check, RefreshCw } from 'lucide-react';
-import { PersonaTone } from '../types';
+import { X, Sliders, Trash2, Check, RefreshCw, Zap, Brain } from 'lucide-react';
+import { PersonaTone, ModelChoice } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   tone: PersonaTone;
   onToneChange: (tone: PersonaTone) => void;
+  model: ModelChoice;
+  onModelChange: (model: ModelChoice) => void;
   customInstruction: string;
   onCustomInstructionChange: (instruction: string) => void;
   onClearAllConversations: () => void;
@@ -17,6 +19,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   tone,
   onToneChange,
+  model,
+  onModelChange,
   customInstruction,
   onCustomInstructionChange,
   onClearAllConversations,
@@ -49,7 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">Davis AI Settings</h2>
-              <p className="text-xs text-slate-500">Fine-tune conversation tone and assistant instructions</p>
+              <p className="text-xs text-slate-500">Fine-tune model engine, tone, and assistant instructions</p>
             </div>
           </div>
           <button
@@ -62,6 +66,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-5 text-sm text-slate-700">
+          {/* AI Model Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                AI Engine Model
+              </label>
+              <span className="text-[11px] text-emerald-600 font-medium">Auto-failover enabled</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => onModelChange('gemini-3.1-flash-lite')}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  model === 'gemini-3.1-flash-lite'
+                    ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600 text-indigo-950'
+                    : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                }`}
+              >
+                <div className="font-semibold text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" />
+                    Gemini 3.1 Flash Lite
+                  </span>
+                  {model === 'gemini-3.1-flash-lite' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                  <span className="font-medium text-emerald-600">⚡ Ultra Fast (~0.8s)</span> · High reliability for coding and everyday questions.
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onModelChange('gemini-3.8-flash')}
+                className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                  model === 'gemini-3.8-flash'
+                    ? 'border-indigo-600 bg-indigo-50/70 ring-1 ring-indigo-600 text-indigo-950'
+                    : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                }`}
+              >
+                <div className="font-semibold text-xs flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                    Gemini 3.8 Flash
+                  </span>
+                  {model === 'gemini-3.8-flash' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                  <span className="font-medium text-indigo-600">🧠 Deep Reasoning</span> · Multi-step thinking (automatic failover if high demand).
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Persona Tone */}
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -138,7 +195,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <textarea
               value={tempInstruction}
               onChange={(e) => setTempInstruction(e.target.value)}
-              placeholder="e.g. You are a senior frontend architect who explains concepts with clean TypeScript code and concise diagrams..."
+              placeholder="e.g. You are a senior software architect who explains concepts with clean TypeScript code and concise diagrams..."
               rows={3}
               className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-800"
             />

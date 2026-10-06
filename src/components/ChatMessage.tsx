@@ -120,9 +120,22 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </div>
           ) : (
             <div className="relative">
-              <MarkdownRenderer content={message.content} />
-              {isStreaming && (
-                <span className="inline-block w-2 h-4 ml-1 bg-indigo-600 animate-pulse align-middle" />
+              {isStreaming && !message.content ? (
+                <div className="flex items-center gap-2.5 py-1 text-slate-500 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" />
+                  </div>
+                  <span className="text-slate-500 font-medium text-xs">Davis AI is thinking...</span>
+                </div>
+              ) : (
+                <>
+                  <MarkdownRenderer content={message.content} />
+                  {isStreaming && (
+                    <span className="inline-block w-2 h-4 ml-1 bg-indigo-600 animate-pulse align-middle" />
+                  )}
+                </>
               )}
             </div>
           )}
