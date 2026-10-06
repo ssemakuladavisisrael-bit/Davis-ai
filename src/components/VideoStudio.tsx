@@ -370,6 +370,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     const w = ctx.canvas.width;
     const h = ctx.canvas.height;
 
+    // Force English video text to render normally left-to-right even if the app/browser inherits RTL.
+    ctx.direction = 'ltr';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
     // Background gradient with gentle animated sweep
     const shift = Math.sin(timeFraction * Math.PI) * 40;
     const gradient = ctx.createLinearGradient(0, -shift, w, h + shift);
@@ -529,6 +534,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     talkLevel = 0
   ) => {
     ctx.save();
+    // Keep the cartoon's English labels and speech bubble left-to-right.
+    ctx.direction = 'ltr';
+    ctx.textAlign = 'left';
 
     const talk = Math.max(0.05, Math.min(1, talkLevel || Math.max(0, Math.sin(timeFraction * Math.PI * 22))));
     const bob = Math.sin(timeFraction * Math.PI * 4) * 3;
