@@ -496,6 +496,92 @@ Guidelines:
     }
   };
 
+  const handleAnalyzeMp4 = async (file: File, prompt: string) => {
+    if (isStreaming) return;
+
+    if (!file.type.includes('mp4') && !file.name.toLowerCase().endsWith('.mp4')) {
+      window.alert('Please select a valid MP4 video file.');
+      return;
+    }
+
+    const targetConvId = activeId || 'conv-' + Date.now();
+    const userMessage: Message = {
+      id: 'msg-' + Date.now() + '-video-user',
+      role: 'user',
+      content: '🎬 MP4 uploaded: **' + file.name + '**\\n\\n' + prompt,
+      timestamp: Date.now(),
+    };
+    const assistantId = 'msg-' + Date.now() + '-video-assistant';
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: 'Uploading and analyzing your MP4 video…',
+      timestamp: Date.now(),
+    };
+
+    if (!activeConversation) {
+      setConversations((prev) => [{
+        id: targetConvId,
+        title: file.name.replace(/\\.mp4$/i, '').slice(0, 32) || 'MP4 Analysis',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [userMessage, assistantMessage],
+      }, ...prev]);
+      setActiveId(targetConvId);
+    } else {
+      setConversations((prev) => prev.map((c) =>
+        c.id === targetConvId
+          ? { ...c, messages: [...c.messages, userMessage, assistantMessage], updatedAt: Date.now() }
+          : c
+      ));
+    }
+
+    setInput('');
+    setIsStreaming(true);
+
+    try {
+      const response = await fetch('/api/video/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'video/mp4',
+          'X-Video-Prompt': encodeURIComponent(prompt),
+        },
+        body: file,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'MP4 analysis failed (HTTP ' + response.status + ').');
+      }
+
+      const answer = data.text || 'The MP4 was analyzed successfully, but no text result was returned.';
+      setConversations((prev) => prev.map((c) =>
+        c.id === targetConvId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.id === assistantId ? { ...m, content: answer } : m
+              ),
+              updatedAt: Date.now(),
+            }
+          : c
+      ));
+    } catch (err: any) {
+      const message = err?.message || 'Could not analyze the MP4 video.';
+      setConversations((prev) => prev.map((c) =>
+        c.id === targetConvId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.id === assistantId ? { ...m, content: message, isError: true } : m
+              ),
+            }
+          : c
+      ));
+    } finally {
+      setIsStreaming(false);
+    }
+  };
+
   const handleRetryLastTurn = () => {
     if (!activeConversation || activeConversation.messages.length < 2 || isStreaming) return;
 
