@@ -1240,7 +1240,25 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
         {/* TAB 1: NARRATED VIDEO PRODUCER */}
         {activeTab === 'narrated' && (
-          <div className="grid lg:grid-cols-[380px_1fr] gap-0 flex-1">
+          <div className="flex flex-col flex-1">
+            <div className="px-5 py-3 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+              {[
+                ['1', 'Set up', !plan],
+                ['2', 'Storyboard', !!plan],
+                ['3', 'Voiceover', voiceoverReady],
+                ['4', 'Preview & export', !!videoUrl],
+              ].map(([num, label, active]) => (
+                <div key={String(num)} className="flex items-center gap-2">
+                  <span className={`h-6 w-6 rounded-full flex items-center justify-center ${active ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-500'}`}>{num}</span>
+                  <span className={active ? 'text-indigo-700' : 'text-slate-500'}>{label}</span>
+                  {num !== '4' && <span className="text-slate-300">→</span>}
+                </div>
+              ))}
+              <div className="ml-auto px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                {duration === '120' ? '2:00 target' : `${duration}s target`}
+              </div>
+            </div>
+            <div className="grid lg:grid-cols-[380px_1fr] gap-0 flex-1">
             {/* Left Controls Bar */}
             <section className="p-5 border-b lg:border-b-0 lg:border-r border-slate-200 space-y-4 bg-white">
               <div>
@@ -1519,11 +1537,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                       {!isRendering ? (
                         <button
                           onClick={handleRenderVideo}
-                          disabled={isPlayingLive || isGeneratingVoice}
+                          disabled={isPlayingLive || isGeneratingVoice || !voiceoverReady}
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
                           <Tv className="h-4 w-4 text-emerald-400" />
-                          <span>Export Video File (HD 16:9 WebM)</span>
+                          <span>{voiceoverReady ? 'Export Video File (HD 16:9 WebM)' : 'Generate Voiceover First'}</span>
                         </button>
                       ) : (
                         <button
@@ -1591,8 +1609,13 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
                   {/* Scene-by-Scene Review */}
                   <div className="space-y-3">
-                    <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Storyboard Scenes ({plan.scenes.length})
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        Storyboard Scenes ({plan.scenes.length})
+                      </div>
+                      <div className="text-[11px] font-semibold text-slate-500">
+                        Total: {Math.round(plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds ?? 4))}s
+                      </div>
                     </div>
                     {plan.scenes.map((scene, i) => (
                       <div
