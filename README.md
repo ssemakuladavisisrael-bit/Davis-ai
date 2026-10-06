@@ -101,15 +101,22 @@ Davis AI uses a secure server-side architecture so your Google Gemini API key is
 
 ## 🎬 Video Studio
 
-Davis AI now includes a built-in **Video Studio**.
+Davis AI now includes a realistic AI video workflow powered by Google Veo 3.1.
 
 - Open **Create Video** from the chat header.
 - Enter a topic, audience, duration and style.
-- Gemini creates a structured storyboard with a hook, scenes, narration and visual directions.
-- Render the storyboard directly in the browser as a 16:9 WebM video.
-- Preview the result and download it from the app.
-- Gemini remains server-side; the browser never receives `GEMINI_API_KEY`.
+- Gemini creates the storyboard, hook, narration and visual directions.
+- **Generate full realistic AI video** sends the storyboard to the server.
+- Veo 3.1 generates an initial 8-second photorealistic clip with native audio, then Davis AI can extend the Veo-generated video in roughly 7-second increments for longer videos.
+- The generated result is returned as an MP4 for preview and download.
+- The Gemini API key stays server-side.
+
+### Important setup
+
+The server must have a working `GEMINI_API_KEY` with access to Veo 3.1. Video generation is asynchronous and can take significantly longer than normal chat responses. Veo 3.1 currently supports 720p, 1080p and 4K for supported 8-second generations; the long-video extension workflow uses 720p. See Google's official Veo documentation for current availability, limits and pricing.
 
 ### Video architecture
 
-The current version intentionally uses a browser renderer so it can create a working video without exposing API secrets. The next upgrade can connect the storyboard scenes to an image/video generation provider and add generated voice-over, subtitles and richer transitions.
+`Prompt → Gemini storyboard → Veo 3.1 realistic generation → Veo extension for longer duration → MP4 preview/download`
+
+The browser never receives `GEMINI_API_KEY`.
