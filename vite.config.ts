@@ -18,6 +18,7 @@ export default defineConfig(() => {
       // Do not open a Vite HMR WebSocket in hosted/preview environments.
       // The app does not depend on WebSockets for its API features.
       hmr: false,
+      ws: false,
       watch: null,
     },
   };
