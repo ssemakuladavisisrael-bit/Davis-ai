@@ -535,6 +535,69 @@ app.post('/api/video/veo/download', async (req, res) => {
   }
 });
 
+// Realistic Video Generation endpoint (synchronous wait & stream for RealisticVideoButton)
+app.post('/api/video/realistic', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { prompt, resolution, aspectRatio } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') {
+    res.status(400).json({ error: 'Prompt is required for realistic video generation.' });
+    return;
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    const operation = await ai.models.generateVideos({
+      model: 'veo-3.1-lite-generate-preview',
+      prompt,
+      config: {
+        numberOfVideos: 1,
+        resolution: resolution === '1080p' ? '1080p' : '720p',
+        aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
+      },
+    });
+
+    const op = new GenerateVideosOperation();
+    op.name = operation.name;
+    let completed = false;
+    let attempts = 0;
+
+    while (!completed && attempts < 36) {
+      await new Promise((r) => setTimeout(r, 5000));
+      attempts++;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      if (updated.done) {
+        if (updated.error) {
+          throw new Error((updated.error as any)?.message || String(updated.error) || 'Veo generation failed.');
+        }
+        const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+        if (!uri) throw new Error('Video URI not found from Veo.');
+        const videoRes = await fetch(uri, { headers: { 'x-goog-api-key': apiKey } });
+        res.setHeader('Content-Type', 'video/mp4');
+        const arrayBuffer = await videoRes.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+        return;
+      }
+    }
+    throw new Error('Video generation timed out. Please try again.');
+  } catch (err: any) {
+    console.error('Realistic video error:', err);
+    res.status(500).json({
+      error: err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')
+        ? 'Google Veo requires a paid API key with video quota. Please use Davis AI Video Studio (Narrated Producer) for instant playback.'
+        : err?.message || 'Failed to generate realistic video.',
+    });
+  }
+});
+
 // Setup Vite middlewares in development or static serving in production
 async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
