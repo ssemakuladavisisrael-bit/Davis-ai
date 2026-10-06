@@ -172,8 +172,6 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     drawSceneFrame(ctx, sceneToDraw, currentPreviewScene, plan.scenes.length, 0, plan.title, isClosing);
   }, [plan, currentPreviewScene, isRendering, isPlayingLive]);
 
-  if (!isOpen) return null;
-
   // Auto-play trigger when opened from chat
   useEffect(() => {
     if (initialConfig?.autoPlay && !autoPlayTriggeredRef.current && isOpen) {
@@ -1177,6 +1175,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     'Why Black Holes Bend Space and Time',
     '5 Essential Prompting Strategies for AI',
   ];
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
