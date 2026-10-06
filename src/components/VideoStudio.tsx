@@ -93,7 +93,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderStatusText, setRenderStatusText] = useState('');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoFileType, setVideoFileType] = useState<'mp4' | 'webm'>('mp4');
+  const [videoFileType, setVideoFileType] = useState<'mp4' | 'webm'>('webm');
   const [isConvertingMp4, setIsConvertingMp4] = useState(false);
   const [error, setError] = useState('');
 
