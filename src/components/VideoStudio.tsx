@@ -1161,7 +1161,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         finalBlob = new Blob([mp4Data.buffer as ArrayBuffer], { type: 'video/mp4' });
         finalType = 'mp4';
         const finalDurationSec = await getBlobDurationSeconds(finalBlob);
-        if (finalDurationSec < minimumAcceptableDurationSec) {
+        // Some mobile browsers can still hide MP4 duration metadata. Only reject
+        // when a reliable duration is actually available and is genuinely too short.
+        if (finalDurationSec !== null && finalDurationSec < minimumAcceptableDurationSec) {
           throw new Error(
             'MP4 conversion produced only ' + finalDurationSec.toFixed(1) +
             's; expected about ' + expectedDurationSec + 's. The file was not made available for download.'
