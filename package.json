@@ -24,7 +24,8 @@
     "react-dom": "^19.0.1",
     "vite": "^8.3.0",
     "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2"
+    "@ffmpeg/util": "^0.12.2",
+    "@fix-webm-duration/fix": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
