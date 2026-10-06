@@ -287,7 +287,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       // Scene Title
       ctx.fillStyle = '#ffffff';
       ctx.font = '700 40px system-ui, sans-serif';
-      wrapCanvasText(ctx, scene.title, 64, 170, w - 128, 50, 2);
+      wrapCanvasText(ctx, scene.title, 64, 170, w - 360, 50, 2);
 
       // Visual Direction Cue box
       ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
@@ -356,6 +356,82 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.fillRect(0, h - 6, w, 6);
     ctx.fillStyle = '#6366f1';
     ctx.fillRect(0, h - 6, w * progressTotal, 6);
+  };
+
+  const drawNurseryIllustration = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    sceneIndex: number
+  ) => {
+    const palettes = [
+      ['#fbbf24', '#60a5fa', '#f472b6'],
+      ['#34d399', '#f59e0b', '#a78bfa'],
+      ['#fb7185', '#38bdf8', '#facc15'],
+      ['#a78bfa', '#34d399', '#fb923c'],
+    ];
+    const [shirt1, shirt2, accent] = palettes[sceneIndex % palettes.length];
+
+    ctx.save();
+    ctx.globalAlpha = 0.96;
+
+    // Soft sticker-style background
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, 180, 120, 22);
+    ctx.fill();
+
+    const drawChild = (cx: number, cy: number, shirt: string, skin: string) => {
+      // body
+      ctx.fillStyle = shirt;
+      ctx.beginPath();
+      ctx.roundRect(cx - 24, cy + 22, 48, 42, 15);
+      ctx.fill();
+
+      // head
+      ctx.fillStyle = skin;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 23, 0, Math.PI * 2);
+      ctx.fill();
+
+      // hair
+      ctx.fillStyle = '#4a2c20';
+      ctx.beginPath();
+      ctx.arc(cx, cy - 10, 21, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      // eyes
+      ctx.fillStyle = '#172033';
+      ctx.beginPath();
+      ctx.arc(cx - 7, cy - 1, 2.5, 0, Math.PI * 2);
+      ctx.arc(cx + 7, cy - 1, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // smile
+      ctx.strokeStyle = '#172033';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 3, 8, 0.15, Math.PI - 0.15);
+      ctx.stroke();
+    };
+
+    drawChild(x + 55, y + 40, shirt1, '#f2c6a0');
+    drawChild(x + 120, y + 48, shirt2, '#8d5524');
+
+    // ABC / learning blocks
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.roundRect(x + 142, y + 82, 26, 26, 5);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 15px system-ui, sans-serif';
+    ctx.fillText('A', x + 150, y + 101);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 11px system-ui, sans-serif';
+    ctx.fillText('LEARN!', x + 10, y + 106);
+
+    ctx.restore();
   };
 
   const wrapCanvasText = (
