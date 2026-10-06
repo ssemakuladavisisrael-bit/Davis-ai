@@ -1,4 +1,4 @@
-import { apiUrl, getApiBase } from './lib/api';
+import { apiUrl } from './lib/api';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Menu, 
@@ -270,7 +270,7 @@ Guidelines:
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch(apiUrl('/api/research', {
+      const response = await fetch(apiUrl('/api/research'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: textToResearch.trim() }),
         signal: abortControllerRef.current.signal,
