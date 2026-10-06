@@ -280,6 +280,65 @@ app.post('/api/chat/sync', async (req, res) => {
 });
 
 // AI video planning endpoint. It creates a structured storyboard; the browser renderer turns it into a video.
+function buildECDCourseworkPlan() {
+  return {
+    title: 'AI & Basic Prompting for ECD Teachers',
+    hook: 'AI can help teachers plan better lessons when we give it clear instructions and check the result.',
+    scenes: [
+      {
+        title: 'AI for Early Childhood Teachers',
+        narration: 'Hello teachers at His Grace Nursery School, Bahai Road, Kampala. This short guide introduces Artificial Intelligence and basic prompting skills you can use in early childhood teaching.',
+        visual: 'Title slide with His Grace Nursery School, Kampala; friendly nursery teacher, cartoon children, ABC blocks and learning icons.',
+        seconds: 14
+      },
+      {
+        title: 'What Is AI?',
+        narration: 'Artificial Intelligence, or AI, is technology that can learn from information and generate useful responses. For teachers, it can support lesson planning, activities, stories, questions and learning materials.',
+        visual: 'Simple AI definition beside a phone, books, crayons, numbers and a smiling nursery teacher.',
+        seconds: 14
+      },
+      {
+        title: 'How to Access an AI Tool',
+        narration: 'On a phone or computer, open your browser and visit ChatGPT or Google Gemini. Sign in if required, type your instruction in the chat box, then submit it and review the response.',
+        visual: 'Clean phone-and-computer access demonstration: browser, ChatGPT or Gemini, chat box and submit action.',
+        seconds: 16
+      },
+      {
+        title: 'Weak Prompt vs Better Prompt',
+        narration: 'A weak prompt says: Create a lesson about numbers. A better prompt says: Prepare a 30-minute lesson on numbers 1 to 5 for children aged 4 to 5, using safe local materials, simple language, play-based activities, objectives and assessment.',
+        visual: 'Split-screen prompt comparison. Left: weak prompt. Right: detailed prompt with age, topic, time, materials, activities and assessment.',
+        seconds: 16
+      },
+      {
+        title: 'A Simple Prompt Formula',
+        narration: 'Build stronger prompts with five parts: Role, Task, Audience, Details and Format. For example: Act as an experienced nursery teacher; prepare a numbers lesson for four-to-five-year-olds; include local materials, activities and assessment in a clear lesson-plan format.',
+        visual: 'Large five-part formula: ROLE + TASK + AUDIENCE + DETAILS + FORMAT, with simple nursery icons.',
+        seconds: 14
+      },
+      {
+        title: 'Teaching Practice I',
+        narration: 'For Teaching Practice One, ask AI to create a simple lesson plan on colours for children aged three to four. Request objectives, materials, activities and assessment, then adapt the ideas to your classroom.',
+        visual: 'Teaching Practice I card: colours lesson, age 3–4, objectives, materials, activities and assessment; crayons and colour cards.',
+        seconds: 14
+      },
+      {
+        title: 'Teaching Practice II & III',
+        narration: 'For Teaching Practice Two, request learner-centred activities for shapes, including teacher instructions and expected learner responses. For Teaching Practice Three, request a numbers one-to-ten lesson, teaching aids, assessment questions and a teacher reflection.',
+        visual: 'Two classroom cards: TP II shapes activities and TP III numbers one-to-ten materials, activities, assessment and reflection.',
+        seconds: 12
+      },
+      {
+        title: 'Use AI Responsibly',
+        narration: 'Always check AI output for accuracy, age-appropriateness, inclusion and curriculum relevance. Never enter children’s private information. AI is a teaching assistant, not a replacement for professional judgement. Thank you.',
+        visual: 'Responsible-AI checklist with privacy shield, curriculum book, teacher reviewing AI output and happy children.',
+        seconds: 12
+      }
+    ],
+    closing: 'Use clear prompts, review every AI response, and keep children safe. Thank you.'
+  };
+}
+
+
 app.post('/api/video/plan', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
