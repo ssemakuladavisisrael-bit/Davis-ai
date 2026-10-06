@@ -773,7 +773,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         if (stopRenderingRef.current) break;
         const elapsed = performance.now() - startTime;
         const fraction = Math.min(1, elapsed / totalMs);
-        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title);
+        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title, false, getAudioTalkLevel(audioBuffer, elapsed / 1000));
         await new Promise((r) => requestAnimationFrame(r));
       }
 
@@ -806,7 +806,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       while (performance.now() - closeStart < closeMs) {
         if (stopRenderingRef.current) break;
         const fraction = Math.min(1, (performance.now() - closeStart) / closeMs);
-        drawSceneFrame(ctx, closeSceneObj, totalScenes, totalScenes, fraction, plan.title, true);
+        drawSceneFrame(ctx, closeSceneObj, totalScenes, totalScenes, fraction, plan.title, true, 0);
         await new Promise((r) => requestAnimationFrame(r));
       }
     }
