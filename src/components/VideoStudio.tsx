@@ -59,11 +59,11 @@ interface VideoStudioProps {
 }
 
 const VOICE_OPTIONS = [
-  { id: 'Puck', name: 'Puck', desc: 'Friendly, warm & natural' },
+  { id: 'Puck', name: 'Puck', desc: 'Warm, friendly & natural' },
   { id: 'Charon', name: 'Charon', desc: 'Deep, calm & authoritative' },
   { id: 'Kore', name: 'Kore', desc: 'Crisp, articulate & expressive' },
   { id: 'Fenrir', name: 'Fenrir', desc: 'Energetic, confident & bold' },
-  { id: 'Zephyr', name: 'Zephyr', desc: 'Smooth & professional' },
+  { id: 'Zephyr', name: 'Zephyr', desc: 'Smooth, polished & professional' },
 ];
 
 export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
@@ -1104,7 +1104,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1">
-                  <Volume2 className="h-3.5 w-3.5 text-indigo-500" /> AI Voiceover Narrator
+                  <Volume2 className="h-3.5 w-3.5 text-indigo-500" /> Gemini 3.8 Studio Voiceover
                 </label>
                 <select
                   value={voiceName}
