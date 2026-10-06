@@ -218,6 +218,77 @@ app.post('/api/chat/sync', async (req, res) => {
   }
 });
 
+// AI video planning endpoint. It creates a structured storyboard; the browser renderer turns it into a video.
+app.post('/api/video/plan', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { topic, audience, duration, style } = req.body || {};
+  if (!topic || typeof topic !== 'string') {
+    res.status(400).json({ error: 'A video topic is required.' });
+    return;
+  }
+
+  const requestedDuration = Math.min(180, Math.max(60, Number(duration) || 90));
+  const sceneCount = requestedDuration <= 90 ? 6 : 8;
+
+  const prompt = `Create a concise educational video storyboard.
+Topic: ${topic}
+Audience: ${audience || 'general audience'}
+Target duration: ${requestedDuration} seconds
+Style: ${style || 'Educational and engaging'}
+
+Return ONLY valid JSON with this exact shape:
+{
+  "title": "short video title",
+  "hook": "one-sentence opening hook",
+  "scenes": [
+    {
+      "title": "scene title",
+      "narration": "short spoken narration",
+      "visual": "short description of what should appear on screen",
+      "seconds": 10
+    }
+  ],
+  "closing": "short closing message"
+}
+
+Use exactly ${sceneCount} scenes. Their seconds values should add up to approximately ${requestedDuration - 3} seconds. Keep narration natural and short enough to fit each scene. Make the visual descriptions clear enough for a future AI image/video generator. Do not use markdown fences.`;
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: 'You are Davis AI Video Director. Return strict JSON only.',
+        temperature: 0.7,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const raw = (response.text || '').trim();
+    const cleaned = raw.replace(/^\\`\\`\\`json\\s*/i, '').replace(/\\s*\\`\\`\\`$/i, '');
+    const plan = JSON.parse(cleaned);
+
+    if (!plan.title || !Array.isArray(plan.scenes) || plan.scenes.length === 0) {
+      throw new Error('The AI returned an incomplete storyboard.');
+    }
+
+    res.json(plan);
+  } catch (error: any) {
+    console.error('Video planning error:', error);
+    res.status(500).json({ error: error?.message || 'Could not create the video storyboard.' });
+  }
+});
+
 // Setup Vite middlewares in development or static serving in production
 async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
