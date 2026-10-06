@@ -36,10 +36,23 @@ export type VideoPlan = {
   closing: string;
 };
 
+export type VideoStudioConfig = {
+  topic?: string;
+  audience?: string;
+  duration?: string;
+  style?: string;
+  voiceName?: string;
+  veoPrompt?: string;
+  veoResolution?: '720p' | '1080p';
+  veoAspectRatio?: '16:9' | '9:16';
+  mode?: 'narrated' | 'veo';
+};
+
 interface VideoStudioProps {
   isOpen: boolean;
   onClose: () => void;
   initialTopic?: string;
+  initialConfig?: VideoStudioConfig;
 }
 
 const VOICE_OPTIONS = [
@@ -50,7 +63,7 @@ const VOICE_OPTIONS = [
   { id: 'Zephyr', name: 'Zephyr', desc: 'Smooth & professional' },
 ];
 
-export function VideoStudio({ isOpen, onClose, initialTopic = '' }: VideoStudioProps) {
+export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
   const [activeTab, setActiveTab] = useState<'narrated' | 'veo'>('narrated');
   
   // Narrated Studio State
@@ -81,10 +94,43 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '' }: VideoStudioP
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    if (initialTopic && initialTopic !== topic) {
+    if (initialTopic && initialTopic !== topic && !initialConfig?.topic) {
       setTopic(initialTopic);
     }
-  }, [initialTopic]);
+  }, [initialTopic, initialConfig?.topic]);
+
+  useEffect(() => {
+    if (!initialConfig) return;
+
+    if (initialConfig.mode) setActiveTab(initialConfig.mode);
+    if (initialConfig.topic) setTopic(initialConfig.topic);
+    if (initialConfig.audience) setAudience(initialConfig.audience);
+
+    if (initialConfig.duration) {
+      const seconds = Number.parseInt(initialConfig.duration, 10);
+      if ([60, 90, 120].includes(seconds)) setDuration(String(seconds));
+    }
+
+    if (initialConfig.style) {
+      const styleValue = initialConfig.style.toLowerCase();
+      if (styleValue.includes('cinematic')) setStyle('Cinematic & Dramatic');
+      else if (styleValue.includes('tech') || styleValue.includes('futuristic')) setStyle('Tech & Futuristic');
+      else if (styleValue.includes('minimal') || styleValue.includes('direct')) setStyle('Minimal & Direct');
+      else setStyle('Educational & Engaging');
+    }
+
+    if (initialConfig.voiceName) setVoiceName(initialConfig.voiceName);
+    if (initialConfig.veoPrompt) setVeoPrompt(initialConfig.veoPrompt);
+    if (initialConfig.veoResolution) setVeoResolution(initialConfig.veoResolution);
+    if (initialConfig.veoAspectRatio) setVeoAspectRatio(initialConfig.veoAspectRatio);
+
+    setPlan(null);
+    setVideoUrl(null);
+    setError('');
+    setVeoVideoUrl(null);
+    setVeoError('');
+    setVeoStatus('idle');
+  }, [initialConfig]);
 
   useEffect(() => {
     return () => {
