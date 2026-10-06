@@ -593,7 +593,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setRenderProgress(0);
     setError('');
 
-    // Initialize Web Audio Context
+    try {
+      // Initialize Web Audio Context
     let audioCtx: AudioContext;
     try {
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
@@ -813,6 +814,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsRendering(false);
     setRenderProgress(100);
     setRenderStatusText('Video rendering complete!');
+    } catch (err: any) {
+      console.error('Narrated video render error:', err);
+      setError(err?.message || 'Video rendering failed. Please try again in Chrome.');
+    } finally {
+      setIsRendering(false);
+    }
   };
 
   const handleStopRendering = () => {
