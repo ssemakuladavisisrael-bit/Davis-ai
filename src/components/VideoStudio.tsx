@@ -207,12 +207,22 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   };
 
   // Pre-generate Voiceover for scenes via Gemini TTS
-  const fetchSceneAudio = async (text: string, voice: string): Promise<ArrayBuffer | null> => {
+  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+    return bytes.buffer;
+  };
+
+  const fetchSceneAudio = async (text: string, voice: string, cachedBase64?: string): Promise<ArrayBuffer | null> => {
+    if (cachedBase64) {
+      try { return base64ToArrayBuffer(cachedBase64); } catch {}
+    }
     try {
       const res = await fetch('/api/video/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceName: voice }),
+        body: JSON.stringify({ text, voiceName: voice, style: 'Warm, friendly, clear teacher-training narration with a natural pace and clean pauses.' }),
       });
       if (!res.ok) return null;
       const data = await res.json();
