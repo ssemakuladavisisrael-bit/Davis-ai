@@ -1642,7 +1642,18 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                     <div className="flex flex-col sm:flex-row items-center gap-3">
                       {!isRendering ? (
                         <button
-                          onClick={handleRenderVideo}
+                          onClick={async () => {
+                            try {
+                              await handleRenderVideo();
+                            } catch (err: any) {
+                              console.error('Video export failed:', err);
+                              setIsRendering(false);
+                              setIsConvertingMp4(false);
+                              const message = err?.message || 'Video export failed. Please try again.';
+                              setError(message);
+                              setRenderStatusText(message);
+                            }
+                          }}
                           disabled={isPlayingLive || isGeneratingVoice || !voiceoverReady}
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
