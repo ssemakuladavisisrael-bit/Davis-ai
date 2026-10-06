@@ -274,6 +274,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.fillText('VIDEO STUDIO', 180, 58);
 
     if (!isClosing) {
+      // A cartoon presenter appears on EVERY slide and visually "explains" the lesson.
+      drawExplainingCartoon(ctx, w - 330, 92, index, scene.title);
+
       // Scene indicator pill
       ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.beginPath();
@@ -356,6 +359,95 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.fillRect(0, h - 6, w, 6);
     ctx.fillStyle = '#6366f1';
     ctx.fillRect(0, h - 6, w * progressTotal, 6);
+  };
+
+  const drawExplainingCartoon = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    sceneIndex: number,
+    message: string
+  ) => {
+    ctx.save();
+
+    // Friendly cartoon teacher/presenter
+    const skin = sceneIndex % 2 === 0 ? '#8d5524' : '#f2c6a0';
+    const shirt = ['#f472b6', '#38bdf8', '#34d399', '#f59e0b'][sceneIndex % 4];
+
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, 300, 145, 24);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(99,102,241,0.28)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Speech bubble
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(x + 12, y + 10, 190, 66, 16);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + 175, y + 76);
+    ctx.lineTo(x + 190, y + 91);
+    ctx.lineTo(x + 155, y + 76);
+    ctx.fill();
+
+    ctx.fillStyle = '#172033';
+    ctx.font = '700 14px system-ui, sans-serif';
+    wrapCanvasText(ctx, message, x + 25, y + 34, 164, 18, 3);
+
+    // Body
+    ctx.fillStyle = shirt;
+    ctx.beginPath();
+    ctx.roundRect(x + 224, y + 79, 48, 54, 16);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = skin;
+    ctx.beginPath();
+    ctx.arc(x + 248, y + 70, 25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hair
+    ctx.fillStyle = '#3b2418';
+    ctx.beginPath();
+    ctx.arc(x + 248, y + 61, 24, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes + smile
+    ctx.fillStyle = '#172033';
+    ctx.beginPath();
+    ctx.arc(x + 240, y + 68, 2.5, 0, Math.PI * 2);
+    ctx.arc(x + 256, y + 68, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#172033';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x + 248, y + 75, 8, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+
+    // Pointing arm toward the speech bubble
+    ctx.strokeStyle = skin;
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 228, y + 101);
+    ctx.lineTo(x + 194, y + 72);
+    ctx.stroke();
+
+    // Small learning star/badge
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(x + 215, y + 118, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#172033';
+    ctx.font = '800 10px system-ui, sans-serif';
+    ctx.fillText('TEACH!', x + 12, y + 127);
+
+    ctx.restore();
   };
 
   const drawNurseryIllustration = (
