@@ -380,7 +380,7 @@ Guidelines:
     }));
 
     try {
-      const response = await fetch(apiUrl('/api/chat', {
+      const response = await fetch(apiUrl('/api/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
