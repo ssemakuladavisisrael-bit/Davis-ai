@@ -12,6 +12,21 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
+
+// Allow the GitHub Pages frontend (or another configured frontend) to call this backend.
+// Credentials and the Gemini API key remain server-side; this only enables browser CORS.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (/^https?:\\/\\/([a-z0-9-]+\\.)*github\\.io$/i.test(origin) || origin === process.env.FRONTEND_ORIGIN)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Video-Prompt');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 const DEFAULT_SYSTEM_INSTRUCTION = `You are Davis AI, a versatile, highly intelligent, friendly, and honest conversational assistant.
