@@ -335,7 +335,7 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to approxim
     });
 
     const raw = (response.text || '').trim();
-    const cleaned = raw.replace(/^\\`\\`\\`json\\s*/i, '').replace(/\\s*\\`\\`\\`$/i, '');
+    const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
     const plan = JSON.parse(cleaned);
 
     if (!plan.title || !Array.isArray(plan.scenes) || plan.scenes.length === 0) {
@@ -346,6 +346,119 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to approxim
   } catch (error: any) {
     console.error('Video planning error:', error);
     res.status(500).json({ error: error?.message || 'Could not create the video storyboard.' });
+  }
+});
+
+
+/**
+ * Generate a photorealistic AI video clip with Google's Veo 3.1.
+ * Veo returns an asynchronous operation, so the server polls it and keeps
+ * the Gemini API key private. The client receives the finished MP4 as base64.
+ */
+app.post('/api/video/realistic', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { prompt, aspectRatio, resolution } = req.body || {};
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    res.status(400).json({ error: 'A realistic video prompt is required.' });
+    return;
+  }
+
+  const safePrompt = prompt.trim().slice(0, 7000);
+  const safeAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+  const safeResolution = resolution === '1080p' ? '1080p' : '720p';
+
+  try {
+    const startResponse = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning',
+      {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instances: [{ prompt: safePrompt }],
+          parameters: {
+            aspectRatio: safeAspectRatio,
+            resolution: safeResolution,
+            numberOfVideos: 1,
+          },
+        }),
+      },
+    );
+
+    const startData = await startResponse.json();
+    if (!startResponse.ok || !startData.name) {
+      throw new Error(startData?.error?.message || 'Veo could not start video generation.');
+    }
+
+    const operationName = startData.name;
+    let operationData: any = null;
+
+    // Veo generation is asynchronous. Poll for up to 5 minutes.
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+
+      const statusResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${operationName}`,
+        { headers: { 'x-goog-api-key': apiKey } },
+      );
+
+      operationData = await statusResponse.json();
+
+      if (operationData?.done) break;
+    }
+
+    if (!operationData?.done) {
+      res.status(202).json({
+        status: 'processing',
+        message: 'The realistic video is still being generated. Please try again shortly.',
+        operationName,
+      });
+      return;
+    }
+
+    if (operationData.error) {
+      throw new Error(operationData.error.message || 'Veo video generation failed.');
+    }
+
+    const generated =
+      operationData?.response?.generateVideoResponse?.generatedSamples?.[0]?.video ||
+      operationData?.response?.generatedVideos?.[0]?.video;
+
+    if (!generated?.uri) {
+      throw new Error('Veo completed without returning a video file.');
+    }
+
+    const videoResponse = await fetch(generated.uri, {
+      headers: { 'x-goog-api-key': apiKey },
+    });
+
+    if (!videoResponse.ok) {
+      throw new Error('The generated video could not be downloaded from Veo.');
+    }
+
+    const buffer = Buffer.from(await videoResponse.arrayBuffer());
+
+    res.json({
+      status: 'completed',
+      mimeType: 'video/mp4',
+      videoBase64: buffer.toString('base64'),
+      provider: 'Google Veo 3.1',
+      durationSeconds: 8,
+      aspectRatio: safeAspectRatio,
+      resolution: safeResolution,
+    });
+  } catch (error: any) {
+    console.error('Realistic video generation error:', error);
+    res.status(500).json({
+      error: error?.message || 'Could not generate the realistic AI video.',
+    });
   }
 });
 
