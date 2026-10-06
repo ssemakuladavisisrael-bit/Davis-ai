@@ -662,11 +662,25 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       ? 'video/webm;codecs=vp8,opus'
       : 'video/webm';
 
-    const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(combinedStream, { mimeType: mime });
+    } catch (recorderError) {
+      combinedStream.getTracks().forEach((track) => track.stop());
+      if (audioCtx && audioCtx.state !== 'closed') await audioCtx.close().catch(() => {});
+      throw new Error('This browser could not start video recording. Please use the latest Chrome browser.');
+    }
+
     const chunks: Blob[] = [];
+    let recorderError: Error | null = null;
 
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onerror = (event) => {
+      recorderError = new Error('The browser media recorder failed while creating the video.');
+      console.error('MediaRecorder error:', event);
     };
 
     const ctx = canvas.getContext('2d')!;
@@ -675,7 +689,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     if (plan.scenes.length > 0) {
       drawSceneFrame(ctx, plan.scenes[0], 0, plan.scenes.length, 0, plan.title);
     }
-    recorder.start();
+    // Use regular timeslices so Android browsers flush encoded chunks during long renders.
+    recorder.start(1000);
 
     // Play and render each scene
     const totalScenes = plan.scenes.length;
@@ -747,8 +762,22 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     const recorderStopped = new Promise<void>((resolve) => {
       recorder.addEventListener('stop', () => resolve(), { once: true });
     });
+
+    // Ask the recorder to flush its final encoded chunk before tracks are stopped.
     recorder.stop();
     await recorderStopped;
+
+    if (recorderError) {
+      combinedStream.getTracks().forEach((track) => track.stop());
+      if (audioCtx && audioCtx.state !== 'closed') await audioCtx.close().catch(() => {});
+      throw recorderError;
+    }
+
+    if (chunks.length === 0) {
+      combinedStream.getTracks().forEach((track) => track.stop());
+      if (audioCtx && audioCtx.state !== 'closed') await audioCtx.close().catch(() => {});
+      throw new Error('The browser produced an empty video file. Please retry in Chrome with the Video Studio tab kept open.');
+    }
 
     // Stop audio capture cleanly after the final video frame.
     combinedStream.getTracks().forEach((track) => track.stop());
@@ -756,7 +785,14 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       await audioCtx.close().catch(() => {});
     }
 
-    const finalBlob = new Blob(chunks, { type: mime });
+    const actualMime = recorder.mimeType || mime;
+    const finalBlob = new Blob(chunks, { type: actualMime });
+
+    // Validate the produced recording before exposing it in the player.
+    if (finalBlob.size < 1024) {
+      throw new Error('The recorded video is too small to be valid. Please retry the render.');
+    }
+
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(URL.createObjectURL(finalBlob));
     setIsRendering(false);
