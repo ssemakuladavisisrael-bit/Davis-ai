@@ -543,7 +543,7 @@ Guidelines:
     setIsStreaming(true);
 
     try {
-      const response = await fetch(apiUrl('/api/video/analyze', {
+      const response = await fetch(apiUrl('/api/video/analyze'), {
         method: 'POST',
         headers: {
           'Content-Type': 'video/mp4',
