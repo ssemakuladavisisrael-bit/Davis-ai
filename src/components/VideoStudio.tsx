@@ -1650,6 +1650,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               )}
             </section>
           </div>
+          </div>
         )}
 
         {/* TAB 2: GOOGLE VEO AI GENERATOR */}
