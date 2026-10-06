@@ -32,12 +32,15 @@ export function VideoStudio({ isOpen, onClose }: Props) {
   const [error, setError] = useState('');
   const [realisticBusy, setRealisticBusy] = useState(false);
   const [realisticUrl, setRealisticUrl] = useState<string | null>(null);
+  const [captionUrl, setCaptionUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopRef = useRef(false);
 
   useEffect(() => {
     return () => {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
+      if (realisticUrl) URL.revokeObjectURL(realisticUrl);
+      if (captionUrl) URL.revokeObjectURL(captionUrl);
     };
   }, [videoUrl]);
 
@@ -139,6 +142,38 @@ export function VideoStudio({ isOpen, onClose }: Props) {
     finally { setRealisticBusy(false); }
   };
 
+  const createCaptions = () => {
+    if (!plan) return;
+    let elapsed = 0;
+    const lines: string[] = [];
+    plan.scenes.forEach((scene, index) => {
+      const start = elapsed;
+      const end = elapsed + scene.seconds;
+      const fmt = (seconds: number) => {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+        const ms = Math.round((seconds % 1) * 1000).toString().padStart(3, '0');
+        return `${h}:${m}:${s},${ms}`;
+      };
+      lines.push(`${index + 1}\n${fmt(start)} --> ${fmt(end)}\n${scene.narration}\n`);
+      elapsed = end;
+    });
+    lines.push(`${plan.scenes.length + 1}\n${(() => {
+      const fmt = (seconds: number) => {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+        const ms = Math.round((seconds % 1) * 1000).toString().padStart(3, '0');
+        return `${h}:${m}:${s},${ms}`;
+      };
+      return `${fmt(elapsed)} --> ${fmt(elapsed + 3)}`;
+    })()}\n${plan.closing}\n`);
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    if (captionUrl) URL.revokeObjectURL(captionUrl);
+    setCaptionUrl(URL.createObjectURL(blob));
+  };
+
   const createVideo = async () => {
     if (!plan || recording) return;
     const canvas = canvasRef.current;
@@ -202,6 +237,8 @@ export function VideoStudio({ isOpen, onClose }: Props) {
   const reset = () => {
     setPlan(null);
     setVideoUrl(null);
+    setRealisticUrl(null);
+    setCaptionUrl(null);
     setError('');
   };
 
@@ -303,34 +340,49 @@ export function VideoStudio({ isOpen, onClose }: Props) {
 
                 <canvas ref={canvasRef} width={1280} height={720} className="hidden" />
 
-                <div className="rounded-2xl bg-white border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
-                  <button onClick={generateRealisticVideo} disabled={realisticBusy} className="flex-1 rounded-xl bg-indigo-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-                    {realisticBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                    {realisticBusy ? 'Generating realistic video…' : 'Generate full realistic AI video'}
-                  </button>
+                <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {!recording ? (
+                      <button onClick={createVideo} className="flex-1 rounded-xl bg-slate-900 text-white py-3 font-semibold flex items-center justify-center gap-2">
+                        <Play className="h-4 w-4" /> Create free video
+                      </button>
+                    ) : (
+                      <button onClick={stopVideo} className="flex-1 rounded-xl bg-red-600 text-white py-3 font-semibold flex items-center justify-center gap-2">
+                        <Square className="h-4 w-4" /> Stop rendering
+                      </button>
+                    )}
 
-                  {!recording ? (
-                    <button onClick={createVideo} className="flex-1 rounded-xl bg-slate-900 text-white py-3 font-semibold flex items-center justify-center gap-2">
-                      <Play className="h-4 w-4" /> Render video
+                    <button onClick={generateRealisticVideo} disabled={realisticBusy} className="flex-1 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                      {realisticBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {realisticBusy ? 'Generating realistic…' : 'Realistic AI (Veo)'}
                     </button>
-                  ) : (
-                    <button onClick={stopVideo} className="flex-1 rounded-xl bg-red-600 text-white py-3 font-semibold flex items-center justify-center gap-2">
-                      <Square className="h-4 w-4" /> Stop rendering
-                    </button>
-                  )}
+                  </div>
 
-                  {videoUrl && (
-                    <a href={videoUrl} download="davis-ai-video.webm" className="flex-1 rounded-xl border border-slate-200 bg-white text-slate-800 py-3 font-semibold flex items-center justify-center gap-2">
-                      <Download className="h-4 w-4" /> Download video
-                    </a>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {videoUrl && (
+                      <a href={videoUrl} download="davis-ai-video.webm" className="rounded-xl border border-slate-200 bg-white text-slate-800 px-4 py-2 text-sm font-semibold flex items-center gap-2">
+                        <Download className="h-4 w-4" /> Download free video
+                      </a>
+                    )}
+                    <button onClick={createCaptions} className="rounded-xl border border-slate-200 bg-white text-slate-800 px-4 py-2 text-sm font-semibold">
+                      Create captions
+                    </button>
+                    {captionUrl && (
+                      <a href={captionUrl} download="davis-ai-captions.srt" className="rounded-xl border border-slate-200 bg-white text-slate-800 px-4 py-2 text-sm font-semibold">
+                        Download .SRT
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {videoUrl && <video controls src={videoUrl} className="w-full rounded-2xl bg-black border border-slate-200" />}
                 {realisticUrl && <div className="space-y-2"><p className="text-xs font-semibold text-indigo-700">Realistic AI clip — Veo 3.1</p><video controls src={realisticUrl} className="w-full rounded-2xl bg-black border border-indigo-200" /><a href={realisticUrl} download="davis-ai-realistic.mp4" className="inline-flex rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-semibold">Download realistic MP4</a></div>}
 
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-800">
+                  <strong>Free mode:</strong> storyboard video + captions work without Veo billing. <strong>Realistic AI mode:</strong> uses Google's Veo and requires the appropriate paid API access.
+                </div>
                 <p className="text-xs text-slate-500">
-                  This first video engine renders a clean 16:9 storyboard video directly in the browser. We can add AI images, voice-over and a dedicated video API next without exposing your Gemini key.
+                  The free renderer works directly in the browser, so you can build and export your project now. Realistic generation remains an optional upgrade.
                 </p>
               </div>
             )}
