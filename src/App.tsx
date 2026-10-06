@@ -75,6 +75,19 @@ export default function App() {
   const [videoStudioConfig, setVideoStudioConfig] = useState<ImportedVideoConfig | undefined>(undefined);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
+  const openECDCourseworkVideo = () => {
+    setVideoStudioConfig({
+      topic: "Create a 90–120 second PowerPoint-style explainer video for Early Childhood Development teachers at His Grace Nursery School, Bahai Road, Kampala. Title: Artificial Intelligence and Basic Prompting Skills for Early Childhood Development Teachers. Use approximately 8 concise slides: 1) title and school, 2) simple definition of AI, 3) benefits of AI for early childhood teachers, 4) how to access an AI tool on a phone/computer, 5) weak vs better prompt, 6) ROLE + TASK + AUDIENCE + DETAILS + FORMAT prompting formula, 7) practical Teaching Practice I, II and III prompts, 8) responsible AI use and conclusion. Teaching Practice I prompt: Create a simple nursery lesson plan for children aged 3–4 on colours, including objectives, materials, activities and assessment. Teaching Practice II prompt: Create five learner-centred classroom activities for teaching shapes to nursery children aged 4–5, including teacher instructions and expected learner responses. Teaching Practice III prompt: Help me prepare teaching practice materials for a nursery lesson on numbers 1–10, including a lesson plan, teaching aids, classroom activities, assessment questions and a short teacher reflection. Include narration and readable on-screen captions. Emphasize that teachers should review and adapt AI output and protect children's personal information.",
+      audience: 'Early Childhood Development teachers at His Grace Nursery School, Bahai Road, Kampala',
+      duration: '120',
+      style: 'Professional educational PowerPoint presentation, clean modern academic design, simple language, visually engaging, suitable for university coursework submission',
+      voiceName: 'Puck',
+      mode: 'narrated',
+    });
+    setVideoStudioTopic("Create a 90–120 second PowerPoint-style explainer video for Early Childhood Development teachers at His Grace Nursery School, Bahai Road, Kampala. Title: Artificial Intelligence and Basic Prompting Skills for Early Childhood Development Teachers. Use approximately 8 concise slides: 1) title and school, 2) simple definition of AI, 3) benefits of AI for early childhood teachers, 4) how to access an AI tool on a phone/computer, 5) weak vs better prompt, 6) ROLE + TASK + AUDIENCE + DETAILS + FORMAT prompting formula, 7) practical Teaching Practice I, II and III prompts, 8) responsible AI use and conclusion. Teaching Practice I prompt: Create a simple nursery lesson plan for children aged 3–4 on colours, including objectives, materials, activities and assessment. Teaching Practice II prompt: Create five learner-centred classroom activities for teaching shapes to nursery children aged 4–5, including teacher instructions and expected learner responses. Teaching Practice III prompt: Help me prepare teaching practice materials for a nursery lesson on numbers 1–10, including a lesson plan, teaching aids, classroom activities, assessment questions and a short teacher reflection. Include narration and readable on-screen captions. Emphasize that teachers should review and adapt AI output and protect children's personal information.");
+    setIsVideoStudioOpen(true);
+  };
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -571,6 +584,7 @@ Guidelines:
                 setVideoStudioTopic(top || '');
                 setIsVideoStudioOpen(true);
               }}
+              onOpenCourseworkVideo={openECDCourseworkVideo}
             />
           ) : (
             <div className="py-4 space-y-1">
