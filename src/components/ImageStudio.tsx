@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Image as ImageIcon, Loader2, X, Sparkles } from 'lucide-react';
+import { apiUrl } from '../lib/api';
 
 interface ImageStudioProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
     setError('');
     setImageUrl(null);
     try {
-      const response = await fetch('/api/image/generate', {
+      const response = await fetch(apiUrl('/api/image/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, imageSize }),
