@@ -16,6 +16,7 @@ import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
+import { VideoStudio } from './components/VideoStudio';
 
 const STORAGE_KEY_CONVOS = 'davis_ai_conversations';
 const STORAGE_KEY_TONE = 'davis_ai_tone';
@@ -57,6 +58,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isVideoStudioOpen, setIsVideoStudioOpen] = useState(false);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -472,6 +474,15 @@ Guidelines:
             )}
 
             <button
+              onClick={() => setIsVideoStudioOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+              title="Open Video Studio"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Create Video</span>
+            </button>
+
+            <button
               onClick={handleNewChat}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors cursor-pointer shadow-xs"
               title="Start a new chat (⌘K)"
@@ -553,6 +564,12 @@ Guidelines:
         isOpen={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
         hasApiKey={Boolean(serverStatus?.hasApiKey)}
+      />
+
+      {/* AI Video Studio */}
+      <VideoStudio
+        isOpen={isVideoStudioOpen}
+        onClose={() => setIsVideoStudioOpen(false)}
       />
 
       {/* Settings Modal */}
