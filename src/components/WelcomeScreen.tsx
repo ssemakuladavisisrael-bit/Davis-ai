@@ -16,6 +16,7 @@ interface WelcomeScreenProps {
   hasApiKey: boolean;
   onOpenHelp: () => void;
   onOpenVideoStudio?: (topic?: string) => void;
+  onOpenCourseworkVideo?: () => void;
 }
 
 interface PromptSuggestion {
@@ -31,6 +32,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   hasApiKey,
   onOpenHelp,
   onOpenVideoStudio,
+  onOpenCourseworkVideo,
 }) => {
   const suggestions: PromptSuggestion[] = [
     {
@@ -108,6 +110,31 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </div>
 
       {/* Suggested prompts grid */}
+      {/* Featured coursework template */}
+      {onOpenCourseworkVideo && (
+        <button
+          onClick={onOpenCourseworkVideo}
+          className="w-full mb-4 p-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 hover:border-indigo-300 shadow-sm transition-all text-left group cursor-pointer"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-sm">
+                <Film className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-700">Coursework Template</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-white border border-indigo-200 text-[10px] font-semibold text-indigo-700">120 sec</span>
+                </div>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-1">AI & Basic Prompting for ECD Teachers</h2>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1">His Grace Nursery School · Bahai Road, Kampala</p>
+              </div>
+            </div>
+            <ArrowRight className="w-5 h-5 text-indigo-500 group-hover:translate-x-1 transition-transform shrink-0" />
+          </div>
+        </button>
+      )}
+
       <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {suggestions.map((item, idx) => (
           <button
