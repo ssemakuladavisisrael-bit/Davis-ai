@@ -678,6 +678,13 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   };
 
   // Instant Interactive Live Presentation Player (0 second waiting!)
+  // Fit each narration clip to its assigned timeline slot so the complete presentation
+  // remains exactly the requested duration (for the ECD coursework: exactly 120 seconds).
+  const getFitPlaybackRate = (audioDuration: number, targetSeconds: number, userSpeed = 1) => {
+    if (!audioDuration || !targetSeconds) return userSpeed;
+    return Math.max(0.5, Math.min(2.5, (audioDuration * userSpeed) / targetSeconds));
+  };
+
   const handlePlayLivePresentation = async () => {
     if (!plan || !canvasRef.current || isPlayingLive || isRendering) return;
     setIsPlayingLive(true);
@@ -727,7 +734,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
           }
           const audioElem = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
           audioElem.volume = voiceVolume;
-          audioElem.playbackRate = voiceSpeed;
+          audioElem.playbackRate = decoded ? getFitPlaybackRate(decoded.duration, scene.seconds, voiceSpeed) : voiceSpeed;
           activeAudioElemRef.current = audioElem;
           audioElem.play().catch(() => {});
         } catch (e) {
@@ -739,9 +746,6 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (audioData && audioCtx && !stopLivePlayRef.current) {
         try {
           decoded = await audioCtx.decodeAudioData(audioData.slice(0));
-          if (decoded && decoded.duration > 0) {
-            audioDuration = Math.max(scene.seconds, Math.ceil(decoded.duration / voiceSpeed) + 0.5);
-          }
         } catch {}
       }
 
@@ -756,7 +760,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
       // Smooth frame animation
       const startTime = performance.now();
-      const totalMs = (audioDuration / voiceSpeed) * 1000;
+      const totalMs = scene.seconds * 1000;
 
       while (performance.now() - startTime < totalMs) {
         if (stopLivePlayRef.current) break;
@@ -770,11 +774,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     // Play closing outro
     if (!stopLivePlayRef.current) {
       setCurrentPreviewScene(totalScenes);
+      const closingDurationSec = plan.closingSeconds ?? 4;
       const closeSceneObj: Scene = {
         title: 'Thank You',
         narration: plan.closing,
         visual: 'Davis AI Closing Outro',
-        seconds: 4,
+        seconds: closingDurationSec,
       };
 
       let closingAudioBase64 = plan.closingAudioBase64;
@@ -811,7 +816,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       }
 
       const closeStart = performance.now();
-      const closeMs = (4 / voiceSpeed) * 1000;
+      const closeMs = closingDurationSec * 1000;
       while (performance.now() - closeStart < closeMs) {
         if (stopLivePlayRef.current) break;
         const fraction = Math.min(1, (performance.now() - closeStart) / closeMs);
@@ -979,6 +984,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (audioBuffer && audioCtx && audioDest) {
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
+        source.playbackRate.value = getFitPlaybackRate(audioBuffer.duration, sceneDurationSec, voiceSpeed);
         source.connect(audioDest);
         source.connect(audioCtx.destination);
         source.start();
@@ -1007,6 +1013,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (closingBuffer && audioCtx && audioDest) {
         const source = audioCtx.createBufferSource();
         source.buffer = closingBuffer;
+        source.playbackRate.value = getFitPlaybackRate(closingBuffer.duration, closingDurationSec, voiceSpeed);
         source.connect(audioDest);
         source.connect(audioCtx.destination);
         source.start();
