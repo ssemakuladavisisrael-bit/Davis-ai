@@ -402,7 +402,7 @@ app.post('/api/video/tts', async (req, res) => {
       throw new Error('No audio data received from Gemini TTS.');
     }
 
-    res.json({ audioBase64: base64Audio, mimeType: 'audio/wav' });
+    res.json({ audioBase64: base64Audio, mimeType: response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || 'audio/wav' });
   } catch (err: any) {
     console.error('Video TTS error:', err);
     res.status(500).json({ error: err?.message || 'Failed to synthesize narration audio.' });
