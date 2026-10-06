@@ -32,6 +32,7 @@ export type Scene = {
   visual: string;
   seconds: number;
   audioBase64?: string;
+  audioMimeType?: string;
 };
 
 export type VideoPlan = {
@@ -41,6 +42,7 @@ export type VideoPlan = {
   closing: string;
   closingSeconds?: number;
   closingAudioBase64?: string;
+  closingAudioMimeType?: string;
 };
 
 interface VideoStudioProps {
@@ -165,7 +167,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     if (!ctx) return;
     const isClosing = currentPreviewScene >= plan.scenes.length;
     const sceneToDraw = isClosing
-      ? { title: 'Thank You', narration: plan.closing, visual: 'Outro', seconds: 4 }
+      ? { title: 'Thank You', narration: plan.closing, visual: 'Outro', seconds: plan.closingSeconds ?? 4 }
       : plan.scenes[currentPreviewScene];
     drawSceneFrame(ctx, sceneToDraw, currentPreviewScene, plan.scenes.length, 0, plan.title, isClosing);
   }, [plan, currentPreviewScene, isRendering, isPlayingLive]);
@@ -274,7 +276,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   };
 
   // Pre-generate Voiceover for scenes via Gemini TTS / resilient speech
-  const fetchSceneAudio = async (text: string, voice: string): Promise<{ buffer: ArrayBuffer; base64: string } | null> => {
+  const fetchSceneAudio = async (text: string, voice: string): Promise<{ buffer: ArrayBuffer; base64: string; mimeType: string } | null> => {
     try {
       const res = await fetch('/api/video/tts', {
         method: 'POST',
@@ -290,7 +292,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      return { buffer: bytes.buffer, base64: data.audioBase64 };
+      return { buffer: bytes.buffer, base64: data.audioBase64, mimeType: data.mimeType || 'audio/mpeg' };
     } catch {
       return null;
     }
@@ -323,20 +325,25 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         targetPlan.scenes.map(async (scene) => {
           if (scene.audioBase64 && !forceRegenerate) return scene;
           const fetched = await fetchSceneAudio(scene.narration, voiceName);
-          return fetched ? { ...scene, audioBase64: fetched.base64 } : scene;
+          return fetched ? { ...scene, audioBase64: fetched.base64, audioMimeType: fetched.mimeType } : scene;
         })
       );
 
       let closingAudioBase64 = targetPlan.closingAudioBase64;
+      let closingAudioMimeType = targetPlan.closingAudioMimeType;
       if (!closingAudioBase64 || forceRegenerate) {
         const closingFetched = await fetchSceneAudio(targetPlan.closing, voiceName);
-        if (closingFetched) closingAudioBase64 = closingFetched.base64;
+        if (closingFetched) {
+          closingAudioBase64 = closingFetched.base64;
+          closingAudioMimeType = closingFetched.mimeType;
+        }
       }
       
       const newPlan: VideoPlan = { 
         ...targetPlan, 
         scenes: updatedScenes,
-        closingAudioBase64
+        closingAudioBase64,
+        closingAudioMimeType
       };
       setPlan(newPlan);
       setVoiceoverReady(true);
@@ -719,6 +726,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
           audioData = fetched.buffer;
           audioBase64 = fetched.base64;
           scene.audioBase64 = fetched.base64;
+          scene.audioMimeType = fetched.mimeType;
         }
       }
 
@@ -732,7 +740,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
             activeAudioElemRef.current.pause();
             activeAudioElemRef.current = null;
           }
-          const audioElem = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+          const audioElem = new Audio(`data:${scene.audioMimeType || 'audio/mpeg'};base64,${audioBase64}`);
           audioElem.volume = voiceVolume;
           audioElem.playbackRate = voiceSpeed;
           activeAudioElemRef.current = audioElem;
@@ -795,6 +803,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
           closingAudioData = fetched.buffer;
           closingAudioBase64 = fetched.base64;
           plan.closingAudioBase64 = fetched.base64;
+          plan.closingAudioMimeType = fetched.mimeType;
         }
       }
 
@@ -804,7 +813,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
             activeAudioElemRef.current.pause();
             activeAudioElemRef.current = null;
           }
-          const audioElem = new Audio(`data:audio/mpeg;base64,${closingAudioBase64}`);
+          const audioElem = new Audio(`data:${plan.closingAudioMimeType || 'audio/mpeg'};base64,${closingAudioBase64}`);
           audioElem.volume = voiceVolume;
           audioElem.playbackRate = voiceSpeed;
           activeAudioElemRef.current = audioElem;
