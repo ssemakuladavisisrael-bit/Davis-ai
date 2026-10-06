@@ -19,8 +19,12 @@ import {
   Palette,
   AlertCircle,
   CheckCircle2,
-  Tv
+  Tv,
+  VolumeX,
+  Sliders
 } from 'lucide-react';
+import { VideoPlayer } from './VideoPlayer';
+import { VideoStudioConfig } from '../types';
 
 export type Scene = {
   title: string;
@@ -39,18 +43,6 @@ export type VideoPlan = {
   closingAudioBase64?: string;
 };
 
-export type VideoStudioConfig = {
-  topic?: string;
-  audience?: string;
-  duration?: string;
-  style?: string;
-  voiceName?: string;
-  veoPrompt?: string;
-  veoResolution?: '720p' | '1080p';
-  veoAspectRatio?: '16:9' | '9:16';
-  mode?: 'narrated' | 'veo';
-};
-
 interface VideoStudioProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,11 +51,11 @@ interface VideoStudioProps {
 }
 
 const VOICE_OPTIONS = [
-  { id: 'Puck', name: 'Puck', desc: 'Warm, friendly & natural' },
-  { id: 'Charon', name: 'Charon', desc: 'Deep, calm & authoritative' },
-  { id: 'Kore', name: 'Kore', desc: 'Crisp, articulate & expressive' },
-  { id: 'Fenrir', name: 'Fenrir', desc: 'Energetic, confident & bold' },
-  { id: 'Zephyr', name: 'Zephyr', desc: 'Smooth, polished & professional' },
+  { id: 'Puck', name: 'Puck', desc: 'Friendly, warm & natural (US)' },
+  { id: 'Charon', name: 'Charon', desc: 'Deep, calm & authoritative (UK)' },
+  { id: 'Kore', name: 'Kore', desc: 'Crisp, articulate & expressive (AU)' },
+  { id: 'Fenrir', name: 'Fenrir', desc: 'Energetic, confident & bold (CA)' },
+  { id: 'Zephyr', name: 'Zephyr', desc: 'Smooth & professional (Intl)' },
 ];
 
 export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
@@ -75,11 +67,19 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const [duration, setDuration] = useState('60');
   const [style, setStyle] = useState('Educational and engaging');
   const [voiceName, setVoiceName] = useState('Puck');
+  const [voiceVolume, setVoiceVolume] = useState(1);
+  const [voiceSpeed, setVoiceSpeed] = useState(1);
+  const [isPreviewingVoice, setIsPreviewingVoice] = useState(false);
   const [plan, setPlan] = useState<VideoPlan | null>(null);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [voiceoverReady, setVoiceoverReady] = useState(false);
   
+  // Audio playback and preview element refs
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const activeAudioElemRef = useRef<HTMLAudioElement | null>(null);
+  const autoPlayTriggeredRef = useRef(false);
+
   // Interactive Live Player State
   const [currentPreviewScene, setCurrentPreviewScene] = useState(0);
   const [isPlayingLive, setIsPlayingLive] = useState(false);
@@ -171,6 +171,69 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
   if (!isOpen) return null;
 
+  // Auto-play trigger when opened from chat
+  useEffect(() => {
+    if (initialConfig?.autoPlay && !autoPlayTriggeredRef.current && isOpen) {
+      autoPlayTriggeredRef.current = true;
+      if (!plan && topic.trim()) {
+        handleGeneratePlan();
+      }
+    }
+  }, [initialConfig?.autoPlay, isOpen, topic]);
+
+  useEffect(() => {
+    if (initialConfig?.autoPlay && plan && !isPlayingLive && !isRendering) {
+      const timer = setTimeout(() => {
+        handlePlayLivePresentation();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [plan, initialConfig?.autoPlay]);
+
+  // Preview / sample voice narration
+  const handlePreviewVoice = async (voiceToTest = voiceName) => {
+    if (isPreviewingVoice) {
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current = null;
+      }
+      setIsPreviewingVoice(false);
+      return;
+    }
+
+    setIsPreviewingVoice(true);
+    try {
+      const sampleText = `Hello! I am ${voiceToTest}, your narrator for this video.`;
+      const res = await fetch('/api/video/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: sampleText, voiceName: voiceToTest }),
+      });
+      if (!res.ok) throw new Error('TTS preview failed');
+      const data = await res.json();
+      if (!data.audioBase64) throw new Error('No audio returned');
+
+      const audio = new Audio(`data:${data.mimeType || 'audio/mpeg'};base64,${data.audioBase64}`);
+      audio.volume = voiceVolume;
+      audio.playbackRate = voiceSpeed;
+      previewAudioRef.current = audio;
+      audio.onended = () => setIsPreviewingVoice(false);
+      audio.onerror = () => setIsPreviewingVoice(false);
+      await audio.play();
+    } catch (e) {
+      console.warn('Voice preview fallback to Web Speech:', e);
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(`Hello! I am ${voiceToTest}.`);
+        utter.rate = voiceSpeed;
+        utter.onend = () => setIsPreviewingVoice(false);
+        utter.onerror = () => setIsPreviewingVoice(false);
+        window.speechSynthesis.speak(utter);
+      } else {
+        setIsPreviewingVoice(false);
+      }
+    }
+  };
+
   // Generate AI Storyboard Plan
   const handleGeneratePlan = async () => {
     if (!topic.trim() || isPlanning) return;
@@ -199,6 +262,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       setPlan(data);
       setVoiceoverReady(false);
       setCurrentPreviewScene(0);
+
+      // Eagerly pre-synthesize voiceover in parallel so playback is instant
+      handleGenerateVoiceover(data).catch(() => {});
     } catch (err: any) {
       setError(err?.message || 'Could not generate the video storyboard.');
     } finally {
@@ -206,34 +272,24 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
   };
 
-  // Pre-generate Voiceover for scenes via Gemini TTS
-  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-    return bytes.buffer;
-  };
-
-  const fetchSceneAudio = async (text: string, voice: string, cachedBase64?: string): Promise<ArrayBuffer | null> => {
-    if (cachedBase64) {
-      try { return base64ToArrayBuffer(cachedBase64); } catch {}
-    }
+  // Pre-generate Voiceover for scenes via Gemini TTS / resilient speech
+  const fetchSceneAudio = async (text: string, voice: string): Promise<{ buffer: ArrayBuffer; base64: string } | null> => {
     try {
       const res = await fetch('/api/video/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceName: voice, style: 'Warm, friendly, clear teacher-training narration with a natural pace and clean pauses.' }),
+        body: JSON.stringify({ text, voiceName: voice }),
       });
       if (!res.ok) return null;
       const data = await res.json();
       if (!data.audioBase64) return null;
 
-      const binaryString = atob(data.audioBase64);
+      const binaryString = atob(data.audioBase64.trim().replace(/\s/g, ''));
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      return bytes.buffer;
+      return { buffer: bytes.buffer, base64: data.audioBase64 };
     } catch {
       return null;
     }
@@ -247,21 +303,43 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     return btoa(binary);
   };
 
-  const handleGenerateVoiceover = async () => {
-    if (!plan || isGeneratingVoice) return;
+  const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+    const binary = atob(base64.trim().replace(/\s/g, ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  };
+
+  const handleGenerateVoiceover = async (customPlan?: VideoPlan) => {
+    const targetPlan = customPlan || plan;
+    if (!targetPlan || isGeneratingVoice) return;
     setIsGeneratingVoice(true);
     setError('');
     try {
-      const updatedScenes: Scene[] = [];
-      for (const scene of plan.scenes) {
-        const audioData = await fetchSceneAudio(scene.narration, voiceName);
-        if (!audioData) throw new Error('Voiceover generation failed. Check the server Gemini API key and try again.');
-        updatedScenes.push({ ...scene, audioBase64: arrayBufferToBase64(audioData) });
+      const updatedScenes: Scene[] = await Promise.all(
+        targetPlan.scenes.map(async (scene) => {
+          if (scene.audioBase64) return scene;
+          const fetched = await fetchSceneAudio(scene.narration, voiceName);
+          return fetched ? { ...scene, audioBase64: fetched.base64 } : scene;
+        })
+      );
+
+      let closingAudioBase64 = targetPlan.closingAudioBase64;
+      if (!closingAudioBase64) {
+        const closingFetched = await fetchSceneAudio(targetPlan.closing, voiceName);
+        if (closingFetched) closingAudioBase64 = closingFetched.base64;
       }
-      const closingAudio = await fetchSceneAudio(plan.closing, voiceName);
-      if (!closingAudio) throw new Error('Closing voiceover generation failed. Check the server Gemini API key and try again.');
-      setPlan({ ...plan, scenes: updatedScenes, closingAudioBase64: arrayBufferToBase64(closingAudio) });
+      
+      const newPlan: VideoPlan = { 
+        ...targetPlan, 
+        scenes: updatedScenes,
+        closingAudioBase64
+      };
+      setPlan(newPlan);
       setVoiceoverReady(true);
+      return newPlan;
     } catch (err: any) {
       setVoiceoverReady(false);
       setError(err?.message || 'Could not generate the voiceover.');
@@ -623,30 +701,67 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       const scene = plan.scenes[i];
 
       // Fetch speech audio if available
-      const audioData = await fetchSceneAudio(scene.narration, voiceName, scene.audioBase64);
+      let audioData: ArrayBuffer | null = null;
+      let audioBase64 = scene.audioBase64;
+      if (audioBase64) {
+        audioData = base64ToArrayBuffer(audioBase64);
+      } else {
+        const fetched = await fetchSceneAudio(scene.narration, voiceName);
+        if (fetched) {
+          audioData = fetched.buffer;
+          audioBase64 = fetched.base64;
+          scene.audioBase64 = fetched.base64;
+        }
+      }
+
       let audioDuration = scene.seconds;
       let decoded: AudioBuffer | null = null;
 
+      // 1. Play audible voiceover through HTML5 Audio element
+      if (audioBase64 && !stopLivePlayRef.current) {
+        try {
+          if (activeAudioElemRef.current) {
+            activeAudioElemRef.current.pause();
+            activeAudioElemRef.current = null;
+          }
+          const audioElem = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
+          audioElem.volume = voiceVolume;
+          audioElem.playbackRate = voiceSpeed;
+          activeAudioElemRef.current = audioElem;
+          audioElem.play().catch(() => {});
+        } catch (e) {
+          console.warn('Audio element playback caught:', e);
+        }
+      }
+
+      // 2. Decode for mouth movement talk energy
       if (audioData && audioCtx && !stopLivePlayRef.current) {
         try {
-          decoded = await audioCtx.decodeAudioData(audioData);
-          audioDuration = Math.max(scene.seconds, decoded.duration + 0.5);
-          const source = audioCtx.createBufferSource();
-          source.buffer = decoded;
-          source.connect(audioCtx.destination);
-          source.start();
+          decoded = await audioCtx.decodeAudioData(audioData.slice(0));
+          if (decoded && decoded.duration > 0) {
+            audioDuration = Math.max(scene.seconds, Math.ceil(decoded.duration / voiceSpeed) + 0.5);
+          }
+        } catch {}
+      }
+
+      // 3. Fallback to speech synthesis if no audio was generated
+      if (!audioBase64 && !stopLivePlayRef.current && 'speechSynthesis' in window) {
+        try {
+          const utter = new SpeechSynthesisUtterance(scene.narration);
+          utter.rate = voiceSpeed;
+          window.speechSynthesis.speak(utter);
         } catch {}
       }
 
       // Smooth frame animation
       const startTime = performance.now();
-      const totalMs = audioDuration * 1000;
+      const totalMs = (audioDuration / voiceSpeed) * 1000;
 
       while (performance.now() - startTime < totalMs) {
         if (stopLivePlayRef.current) break;
         const elapsed = performance.now() - startTime;
         const fraction = Math.min(1, elapsed / totalMs);
-        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title, false, getAudioTalkLevel(decoded, elapsed / 1000));
+        drawSceneFrame(ctx, scene, i, totalScenes, fraction, plan.title, false, getAudioTalkLevel(decoded, (elapsed / 1000) * voiceSpeed));
         await new Promise((r) => requestAnimationFrame(r));
       }
     }
@@ -661,19 +776,41 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         seconds: 4,
       };
 
-      const closingAudioData = await fetchSceneAudio(plan.closing, voiceName, plan.closingAudioBase64);
-      if (closingAudioData && audioCtx && !stopLivePlayRef.current) {
+      let closingAudioBase64 = plan.closingAudioBase64;
+      let closingAudioData: ArrayBuffer | null = null;
+      if (closingAudioBase64) {
+        closingAudioData = base64ToArrayBuffer(closingAudioBase64);
+      } else {
+        const fetched = await fetchSceneAudio(plan.closing, voiceName);
+        if (fetched) {
+          closingAudioData = fetched.buffer;
+          closingAudioBase64 = fetched.base64;
+          plan.closingAudioBase64 = fetched.base64;
+        }
+      }
+
+      if (closingAudioBase64 && !stopLivePlayRef.current) {
         try {
-          const decoded = await audioCtx.decodeAudioData(closingAudioData);
-          const source = audioCtx.createBufferSource();
-          source.buffer = decoded;
-          source.connect(audioCtx.destination);
-          source.start();
+          if (activeAudioElemRef.current) {
+            activeAudioElemRef.current.pause();
+            activeAudioElemRef.current = null;
+          }
+          const audioElem = new Audio(`data:audio/mpeg;base64,${closingAudioBase64}`);
+          audioElem.volume = voiceVolume;
+          audioElem.playbackRate = voiceSpeed;
+          activeAudioElemRef.current = audioElem;
+          audioElem.play().catch(() => {});
+        } catch {}
+      } else if (!stopLivePlayRef.current && 'speechSynthesis' in window) {
+        try {
+          const utter = new SpeechSynthesisUtterance(plan.closing);
+          utter.rate = voiceSpeed;
+          window.speechSynthesis.speak(utter);
         } catch {}
       }
 
       const closeStart = performance.now();
-      const closeMs = 4000;
+      const closeMs = (4 / voiceSpeed) * 1000;
       while (performance.now() - closeStart < closeMs) {
         if (stopLivePlayRef.current) break;
         const fraction = Math.min(1, (performance.now() - closeStart) / closeMs);
@@ -687,6 +824,13 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
   const handleStopLivePlay = () => {
     stopLivePlayRef.current = true;
+    if (activeAudioElemRef.current) {
+      activeAudioElemRef.current.pause();
+      activeAudioElemRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch {}
+    }
     setIsPlayingLive(false);
   };
 
@@ -714,45 +858,70 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const audioDest = audioCtx ? audioCtx.createMediaStreamDestination() : null;
 
-    // Connect a silent carrier audio oscillator so the audio track is active continuously
-    if (audioCtx && audioDest) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      gain.gain.value = 0.0001; // inaudible carrier
-      osc.connect(gain);
-      gain.connect(audioDest);
-      osc.start();
-    }
+    // Helper to generate a fallback audio buffer with pleasant chime if synthesis failed
+    const createFallbackBuffer = (c: AudioContext, sec: number): AudioBuffer => {
+      const buf = c.createBuffer(1, Math.floor(c.sampleRate * sec), c.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) {
+        const t = i / c.sampleRate;
+        ch[i] = Math.sin(2 * Math.PI * 440 * t) * Math.exp(-t * 1.5) * 0.08;
+      }
+      return buf;
+    };
 
     // 1. Synthesize Audio Clips
     setRenderStatusText('Synthesizing speech voiceover for scenes...');
-    const audioBuffers: Array<AudioBuffer | null> = [];
+    const audioBuffers: Array<AudioBuffer> = [];
 
     for (let s = 0; s < plan.scenes.length; s++) {
       if (stopRenderingRef.current) break;
       setRenderStatusText(`Synthesizing voiceover: Scene ${s + 1} of ${plan.scenes.length}...`);
       const scene = plan.scenes[s];
-      const audioData = await fetchSceneAudio(scene.narration, voiceName, scene.audioBase64);
+      let audioData: ArrayBuffer | null = null;
+      if (scene.audioBase64) {
+        audioData = base64ToArrayBuffer(scene.audioBase64);
+      } else {
+        const fetched = await fetchSceneAudio(scene.narration, voiceName);
+        if (fetched) {
+          audioData = fetched.buffer;
+          scene.audioBase64 = fetched.base64;
+        }
+      }
       
+      let decodedBuffer: AudioBuffer | null = null;
       if (audioData && audioCtx) {
         try {
-          const decoded = await audioCtx.decodeAudioData(audioData);
-          audioBuffers.push(decoded);
+          decodedBuffer = await audioCtx.decodeAudioData(audioData.slice(0));
         } catch {
-          audioBuffers.push(null);
+          decodedBuffer = null;
         }
-      } else {
-        audioBuffers.push(null);
+      }
+
+      if (audioCtx) {
+        audioBuffers.push(decodedBuffer || createFallbackBuffer(audioCtx, scene.seconds));
       }
       setRenderProgress(Math.round(((s + 1) / (plan.scenes.length + 1)) * 30));
     }
 
-    const closingAudioData = await fetchSceneAudio(plan.closing, voiceName, plan.closingAudioBase64);
+    let closingAudioData: ArrayBuffer | null = null;
+    if (plan.closingAudioBase64) {
+      closingAudioData = base64ToArrayBuffer(plan.closingAudioBase64);
+    } else {
+      const fetched = await fetchSceneAudio(plan.closing, voiceName);
+      if (fetched) {
+        closingAudioData = fetched.buffer;
+        plan.closingAudioBase64 = fetched.base64;
+      }
+    }
+
     let closingBuffer: AudioBuffer | null = null;
     if (closingAudioData && audioCtx) {
       try {
-        closingBuffer = await audioCtx.decodeAudioData(closingAudioData);
+        closingBuffer = await audioCtx.decodeAudioData(closingAudioData.slice(0));
       } catch {}
+    }
+    if (audioCtx && !closingBuffer) {
+      closingBuffer = createFallbackBuffer(audioCtx, plan.closingSeconds || 4);
     }
 
     if (stopRenderingRef.current) {
@@ -771,11 +940,14 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const combinedStream = new MediaStream(combinedTracks);
 
-    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-      ? 'video/webm;codecs=vp9,opus'
-      : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-      ? 'video/webm;codecs=vp8,opus'
-      : 'video/webm';
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4'
+    ];
+    const mime = candidates.find((c) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) || 'video/webm';
 
     const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
     const chunks: Blob[] = [];
@@ -1104,19 +1276,67 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1">
-                  <Volume2 className="h-3.5 w-3.5 text-indigo-500" /> Gemini 3.8 Studio Voiceover
+                  <Volume2 className="h-3.5 w-3.5 text-indigo-500" /> AI Voiceover Narrator
                 </label>
-                <select
-                  value={voiceName}
-                  onChange={(e) => setVoiceName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-white text-slate-800 font-medium"
-                >
-                  {VOICE_OPTIONS.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} — {v.desc}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={voiceName}
+                    onChange={(e) => setVoiceName(e.target.value)}
+                    className="flex-1 rounded-xl border border-slate-200 p-2 text-xs bg-white text-slate-800 font-medium"
+                  >
+                    {VOICE_OPTIONS.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} — {v.desc}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handlePreviewVoice(voiceName)}
+                    disabled={isPreviewingVoice}
+                    className="shrink-0 px-2.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-indigo-200"
+                    title="Listen to a sample of this voice"
+                  >
+                    {isPreviewingVoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    <span>{isPreviewingVoice ? 'Playing…' : 'Test Voice'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-semibold block mb-1">
+                      Pacing: {voiceSpeed}x
+                    </label>
+                    <div className="flex items-center gap-1">
+                      {[0.85, 1.0, 1.15].map((spd) => (
+                        <button
+                          key={spd}
+                          type="button"
+                          onClick={() => setVoiceSpeed(spd)}
+                          className={`flex-1 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                            voiceSpeed === spd ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-semibold block mb-1">
+                      Volume: {Math.round(voiceVolume * 100)}%
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={voiceVolume}
+                      onChange={(e) => setVoiceVolume(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 rounded appearance-none accent-indigo-600 cursor-pointer mt-1.5"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -1271,7 +1491,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                       {!isRendering ? (
                         <button
                           onClick={handleRenderVideo}
-                          disabled={isPlayingLive || !voiceoverReady}
+                          disabled={isPlayingLive || isGeneratingVoice}
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
                           <Tv className="h-4 w-4 text-emerald-400" />
@@ -1327,39 +1547,17 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                           Exported Video Ready for Playback & Download
                         </span>
-                        <button
-                          onClick={() => {
-                            if (videoElemRef.current) {
-                              videoElemRef.current.currentTime = 0;
-                              videoElemRef.current.play().catch(() => {});
-                            }
-                          }}
-                          className="text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" /> Replay
-                        </button>
+                        <span className="text-[11px] text-slate-500 font-normal">
+                          HD 16:9 with Voiceover Audio
+                        </span>
                       </div>
 
-                      <div className="rounded-xl overflow-hidden bg-black aspect-video relative group">
-                        <video
-                          ref={videoElemRef}
-                          controls
-                          playsInline
-                          preload="auto"
-                          src={videoUrl}
-                          className="w-full h-full object-contain"
-                          onLoadedMetadata={(e) => {
-                            const vid = e.currentTarget;
-                            if (vid.duration === Infinity) {
-                              vid.currentTime = 1e101;
-                              vid.ontimeupdate = () => {
-                                vid.ontimeupdate = null;
-                                vid.currentTime = 0;
-                              };
-                            }
-                          }}
-                        />
-                      </div>
+                      <VideoPlayer
+                        src={videoUrl}
+                        title={plan.title}
+                        duration={plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds || 4)}
+                        downloadFilename={`${plan.title.replace(/\s+/g, '-').toLowerCase() || 'davis-ai-video'}.webm`}
+                      />
                     </div>
                   )}
 

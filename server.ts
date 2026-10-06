@@ -382,52 +382,114 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to exactly 
   }
 });
 
+// Voice to language accent mapping for rich variety of voice tones
+const VOICE_LANG_MAP: Record<string, string> = {
+  Puck: 'en-us',   // Warm, friendly US voice
+  Charon: 'en-uk', // Deep, calm UK voice
+  Kore: 'en-au',   // Articulate, crisp AU voice
+  Fenrir: 'en-ca', // Bold, energetic Canadian voice
+  Zephyr: 'en',    // Smooth, international voice
+  Aoede: 'en-us',  // Expressive, musical voice
+};
+
+let geminiTtsCooldownUntil = 0;
+
+// Helper for resilient text-to-speech fallback with voice accents
+async function fallbackSynthesizeSpeech(text: string, voiceName = 'Puck'): Promise<string> {
+  const lang = VOICE_LANG_MAP[voiceName] || 'en-us';
+  const clean = text.replace(/[*_#`~]/g, '').trim();
+  const words = clean.split(/\s+/);
+  const parts: string[] = [];
+  let current = '';
+  for (const w of words) {
+    if ((current + ' ' + w).length > 130) {
+      if (current) parts.push(current);
+      current = w;
+    } else {
+      current = current ? current + ' ' + w : w;
+    }
+  }
+  if (current) parts.push(current);
+
+  const buffers: Buffer[] = [];
+  for (const p of parts) {
+    try {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(p)}&tl=${encodeURIComponent(lang)}&client=tw-ob`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+      if (res.ok) {
+        const arr = await res.arrayBuffer();
+        buffers.push(Buffer.from(arr));
+      }
+    } catch (e) {
+      console.warn('TTS part fetch warning:', e);
+    }
+  }
+  return Buffer.concat(buffers).toString('base64');
+}
+
 // AI Video Narration (TTS) endpoint
 app.post('/api/video/tts', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
-    return;
-  }
-
-  const { text, voiceName, style } = req.body || {};
+  const { text, voiceName } = req.body || {};
   if (!text || typeof text !== 'string') {
     res.status(400).json({ error: 'Text is required for TTS synthesis.' });
     return;
   }
 
-  try {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
-    });
+  const selectedVoice = voiceName || 'Puck';
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-tts',
-      contents: [{ role: 'user', parts: [{ text: text.slice(0, 1200) }] }],
-      config: {
-        responseModalities: ['AUDIO'],
-        // Flagship TTS: studio-quality, expressive narration for coursework videos.
-        // Keep style separate from the spoken transcript so it is not read aloud.
-        ...(style ? { systemInstruction: `Narrate in a warm, friendly, confident teacher-training style. ${style}` } : {}),
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voiceName || 'Puck' },
+  // 1. Try Gemini TTS if API key is present and not currently on quota cooldown
+  if (apiKey && apiKey.trim() !== '' && Date.now() > geminiTtsCooldownUntil) {
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [{ role: 'user', parts: [{ text: text.slice(0, 600) }] }],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: selectedVoice },
+            },
           },
         },
-      },
-    });
+      });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-      throw new Error('No audio data received from Gemini TTS.');
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        res.json({
+          audioBase64: base64Audio,
+          mimeType: response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || 'audio/wav',
+        });
+        return;
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('Quota')) {
+        geminiTtsCooldownUntil = Date.now() + 15 * 60 * 1000; // 15 min cooldown for quota exhaustion
+        console.warn('Gemini TTS quota reached, activating high-speed accent speech fallback.');
+      } else {
+        console.warn('Gemini TTS unavailable, switching to high-speed accent speech fallback:', errMsg);
+      }
     }
-
-    res.json({ audioBase64: base64Audio, mimeType: response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType || 'audio/wav' });
-  } catch (err: any) {
-    console.error('Video TTS error:', err);
-    res.status(500).json({ error: err?.message || 'Failed to synthesize narration audio.' });
   }
+
+  // 2. Resilient speech synthesis fallback (Instant response with natural accents)
+  try {
+    const fallbackBase64 = await fallbackSynthesizeSpeech(text, selectedVoice);
+    if (fallbackBase64 && fallbackBase64.length > 0) {
+      res.json({ audioBase64: fallbackBase64, mimeType: 'audio/mpeg' });
+      return;
+    }
+  } catch (fallbackErr: any) {
+    console.error('Speech synthesis fallback failed:', fallbackErr);
+  }
+
+  res.status(500).json({ error: 'Failed to synthesize narration audio.' });
 });
 
 // Google Veo AI Video generation (Start operation)

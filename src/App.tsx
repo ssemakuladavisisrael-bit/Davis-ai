@@ -600,8 +600,9 @@ Guidelines:
                     isStreaming={isStreaming && isLastAssistant}
                     isLastAssistant={isLastAssistant}
                     onRetry={handleRetryLastTurn}
-                    onOpenVideoStudio={(top) => {
+                    onOpenVideoStudio={(top, cfg) => {
                       setVideoStudioTopic(top || '');
+                      setVideoStudioConfig(cfg);
                       setIsVideoStudioOpen(true);
                     }}
                   />

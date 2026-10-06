@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Sparkles, 
   Copy, 
@@ -9,9 +9,12 @@ import {
   Volume2, 
   VolumeX, 
   AlertCircle,
-  Film
+  Film,
+  Play,
+  Sliders,
+  Tv
 } from 'lucide-react';
-import { Message } from '../types';
+import { Message, VideoStudioConfig } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface ChatMessageProps {
@@ -19,7 +22,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   isLastAssistant?: boolean;
   onRetry?: () => void;
-  onOpenVideoStudio?: (topic?: string) => void;
+  onOpenVideoStudio?: (topic?: string, config?: VideoStudioConfig) => void;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -34,6 +37,46 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const isUser = message.role === 'user';
+
+  // Detect whether this message represents a video concept, storyboard, or video script
+  const videoDetails = useMemo(() => {
+    if (isUser || isStreaming || !message.content) return null;
+    const lower = message.content.toLowerCase();
+    const hasScenes = lower.includes('### scene') || lower.includes('scene 1') || lower.includes('**scene 1');
+    const hasVideoMention = lower.includes('video storyboard') || lower.includes('video title') || lower.includes('davis_video_prompt');
+    const hasScriptTerms = lower.includes('narration') && (lower.includes('visual direction') || lower.includes('visual'));
+
+    if (!hasScenes && !hasVideoMention && !hasScriptTerms) return null;
+
+    // Extract title if available
+    const titleMatch = message.content.match(/(?:# Video Title:|Video Title:|\*\*Video Title:\*\*|\*\*Title:\*\*)\s*([^\n\r]+)/i);
+    let title = titleMatch ? titleMatch[1].replace(/[*_#`]/g, '').trim() : '';
+    if (!title) {
+      const topicMatch = message.content.match(/Topic:\s*([^\n\r]+)/i);
+      if (topicMatch) title = topicMatch[1].replace(/[*_#`]/g, '').trim();
+    }
+    if (!title) {
+      title = 'AI Directed Video Presentation';
+    }
+
+    // Count scenes
+    const sceneMatches = message.content.match(/Scene\s+\d+/gi);
+    const sceneCount = sceneMatches ? sceneMatches.length : 5;
+
+    // Detect voice if specified
+    const voiceMatch = message.content.match(/Voice:\s*(Puck|Charon|Kore|Fenrir|Zephyr)/i);
+    const voiceName = voiceMatch ? voiceMatch[1] : 'Puck';
+
+    // Build the topic for VideoStudio
+    const topic = title || message.content.slice(0, 120);
+
+    return {
+      title,
+      sceneCount,
+      voiceName,
+      topic,
+    };
+  }, [message.content, isUser, isStreaming]);
 
   const handleCopy = async () => {
     try {
@@ -140,6 +183,65 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* Interactive Video Production Card if video content is detected */}
+          {!isStreaming && !message.isError && videoDetails && onOpenVideoStudio && (
+            <div className="my-4 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-white to-indigo-50/50 border border-indigo-200/90 p-4 shadow-sm space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+                    <Film className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-indigo-950">
+                        {videoDetails.title}
+                      </span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold bg-indigo-100 text-indigo-700 rounded-md">
+                        {videoDetails.sceneCount} Scenes
+                      </span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-emerald-100 text-emerald-800 rounded-md flex items-center gap-1">
+                        <Volume2 className="w-2.5 h-2.5" /> Voiceover: {videoDetails.voiceName}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Ready to play with motion graphics, visuals, and voiceover narration.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  onClick={() => onOpenVideoStudio(videoDetails.topic, {
+                    topic: videoDetails.topic,
+                    voiceName: videoDetails.voiceName,
+                    autoPlay: true,
+                    mode: 'narrated'
+                  })}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/25 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                  title="Play video with real-time voiceover"
+                >
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <span>Play Video with Voiceover</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenVideoStudio(videoDetails.topic, {
+                    topic: videoDetails.topic,
+                    voiceName: videoDetails.voiceName,
+                    autoPlay: false,
+                    mode: 'narrated'
+                  })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold transition-colors cursor-pointer"
+                  title="Customize scenes, change narrator voice, or export video file"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>Customize & Export</span>
+                </button>
+              </div>
             </div>
           )}
 

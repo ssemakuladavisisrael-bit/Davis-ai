@@ -27,3 +27,16 @@ export interface ServerStatus {
 export type PersonaTone = 'balanced' | 'creative' | 'precise';
 
 export type ModelChoice = 'gemini-3.1-flash-lite' | 'gemini-3.8-flash';
+
+export interface VideoStudioConfig {
+  topic?: string;
+  audience?: string;
+  duration?: string;
+  style?: string;
+  voiceName?: string;
+  veoPrompt?: string;
+  veoResolution?: '720p' | '1080p';
+  veoAspectRatio?: '16:9' | '9:16';
+  mode?: 'narrated' | 'veo';
+  autoPlay?: boolean;
+}
