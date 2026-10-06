@@ -218,7 +218,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Sidebar Header: Brand + Close button */}
         <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-          <button onClick={onOpenImageStudio} className="mt-3 w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2.5 text-xs font-bold flex items-center justify-center gap-2"><ImageIcon className="w-4 h-4" /> Image Studio</button>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-indigo-400 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 ring-1 ring-white/10">
               <span className="font-extrabold text-lg tracking-tight">D</span>
@@ -238,6 +237,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
           >
             <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-3 pt-3">
+          <button onClick={onOpenImageStudio} className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2.5 text-xs font-bold flex items-center justify-center gap-2">
+            <ImageIcon className="w-4 h-4" /> Image Studio
           </button>
         </div>
 
