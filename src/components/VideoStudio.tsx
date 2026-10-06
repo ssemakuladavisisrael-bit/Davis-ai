@@ -30,6 +30,8 @@ export function VideoStudio({ isOpen, onClose }: Props) {
   const [recording, setRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [realisticBusy, setRealisticBusy] = useState(false);
+  const [realisticUrl, setRealisticUrl] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stopRef = useRef(false);
 
@@ -112,6 +114,19 @@ export function VideoStudio({ isOpen, onClose }: Props) {
       }
     }
     if (line) ctx.fillText(line, x, currentY);
+  };
+
+  const generateRealisticVideo = async (scene: Scene) => {
+    if (realisticBusy) return;
+    setRealisticBusy(true); setError('');
+    try {
+      const response = await fetch('/api/video/realistic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: `Photorealistic cinematic educational video. Topic: ${topic}. Audience: ${audience}. Scene: ${scene.title}. ${scene.visual}. Natural movement, realistic lighting, documentary cinematography, believable people and environment.`, aspectRatio: '16:9', resolution: '720p' }) });
+      if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || 'Video generation failed.'); }
+      const blob = await response.blob();
+      if (realisticUrl) URL.revokeObjectURL(realisticUrl);
+      setRealisticUrl(URL.createObjectURL(blob));
+    } catch (e: any) { setError(e?.message || 'Could not generate the realistic video.'); }
+    finally { setRealisticBusy(false); }
   };
 
   const createVideo = async () => {
@@ -279,6 +294,11 @@ export function VideoStudio({ isOpen, onClose }: Props) {
                 <canvas ref={canvasRef} width={1280} height={720} className="hidden" />
 
                 <div className="rounded-2xl bg-white border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
+                  <button onClick={() => generateRealisticVideo(plan.scenes[0])} disabled={realisticBusy} className="flex-1 rounded-xl bg-indigo-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                    {realisticBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {realisticBusy ? 'Generating realistic clip…' : 'Generate realistic AI clip'}
+                  </button>
+
                   {!recording ? (
                     <button onClick={createVideo} className="flex-1 rounded-xl bg-slate-900 text-white py-3 font-semibold flex items-center justify-center gap-2">
                       <Play className="h-4 w-4" /> Render video
@@ -296,9 +316,8 @@ export function VideoStudio({ isOpen, onClose }: Props) {
                   )}
                 </div>
 
-                {videoUrl && (
-                  <video controls src={videoUrl} className="w-full rounded-2xl bg-black border border-slate-200" />
-                )}
+                {videoUrl && <video controls src={videoUrl} className="w-full rounded-2xl bg-black border border-slate-200" />}
+                {realisticUrl && <div className="space-y-2"><p className="text-xs font-semibold text-indigo-700">Realistic AI clip — Veo 3.1</p><video controls src={realisticUrl} className="w-full rounded-2xl bg-black border border-indigo-200" /><a href={realisticUrl} download="davis-ai-realistic.mp4" className="inline-flex rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm font-semibold">Download realistic MP4</a></div>}
 
                 <p className="text-xs text-slate-500">
                   This first video engine renders a clean 16:9 storyboard video directly in the browser. We can add AI images, voice-over and a dedicated video API next without exposing your Gemini key.
