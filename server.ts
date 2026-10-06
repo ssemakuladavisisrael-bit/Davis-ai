@@ -390,7 +390,7 @@ app.post('/api/video/tts', async (req, res) => {
     return;
   }
 
-  const { text, voiceName } = req.body || {};
+  const { text, voiceName, style } = req.body || {};
   if (!text || typeof text !== 'string') {
     res.status(400).json({ error: 'Text is required for TTS synthesis.' });
     return;
@@ -403,10 +403,13 @@ app.post('/api/video/tts', async (req, res) => {
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
-      contents: [{ role: 'user', parts: [{ text: text.slice(0, 600) }] }],
+      model: 'gemini-3.8-flash-tts',
+      contents: [{ role: 'user', parts: [{ text: text.slice(0, 1200) }] }],
       config: {
         responseModalities: ['AUDIO'],
+        // Flagship TTS: studio-quality, expressive narration for coursework videos.
+        // Keep style separate from the spoken transcript so it is not read aloud.
+        ...(style ? { systemInstruction: `Narrate in a warm, friendly, confident teacher-training style. ${style}` } : {}),
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: voiceName || 'Puck' },
