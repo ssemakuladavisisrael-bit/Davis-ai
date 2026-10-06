@@ -734,7 +734,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
           }
           const audioElem = new Audio(`data:audio/mpeg;base64,${audioBase64}`);
           audioElem.volume = voiceVolume;
-          audioElem.playbackRate = decoded ? getFitPlaybackRate(decoded.duration, scene.seconds, voiceSpeed) : voiceSpeed;
+          audioElem.playbackRate = voiceSpeed;
           activeAudioElemRef.current = audioElem;
           audioElem.play().catch(() => {});
         } catch (e) {
@@ -746,6 +746,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (audioData && audioCtx && !stopLivePlayRef.current) {
         try {
           decoded = await audioCtx.decodeAudioData(audioData.slice(0));
+          if (decoded && activeAudioElemRef.current) {
+            activeAudioElemRef.current.playbackRate = getFitPlaybackRate(decoded.duration, scene.seconds, voiceSpeed);
+          }
         } catch {}
       }
 
