@@ -245,7 +245,7 @@ Guidelines:
     let targetConvId = activeId;
     let targetMessages: Message[] = [];
     if (!targetConvId || !activeConversation) {
-      const newId = \`conv-\${Date.now()}\`;
+      const newId = `conv-${Date.now()}`;
       const newConv: Conversation = { id: newId, title: textToResearch.trim().slice(0, 32) + (textToResearch.trim().length > 32 ? '...' : ''), createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
       setConversations((prev) => [newConv, ...prev]);
       setActiveId(newId);
@@ -257,8 +257,8 @@ Guidelines:
       }
     }
 
-    const userMessage: Message = { id: \`msg-\${Date.now()}-user\`, role: 'user', content: textToResearch.trim(), timestamp: Date.now() };
-    const assistantPlaceholderId = \`msg-\${Date.now()}-research\`;
+    const userMessage: Message = { id: `msg-${Date.now()}-user`, role: 'user', content: textToResearch.trim(), timestamp: Date.now() };
+    const assistantPlaceholderId = `msg-${Date.now()}-research`;
     const assistantMessage: Message = { id: assistantPlaceholderId, role: 'assistant', content: '', timestamp: Date.now() };
     const updatedMessages = [...targetMessages, userMessage, assistantMessage];
     setConversations((prev) => prev.map((c) => c.id === targetConvId ? { ...c, messages: updatedMessages, updatedAt: Date.now() } : c));
@@ -273,11 +273,11 @@ Guidelines:
         signal: abortControllerRef.current.signal,
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || \`Research failed (HTTP \${response.status})\`);
+      if (!response.ok) throw new Error(data.error || `Research failed (HTTP ${response.status})`);
 
       const sources = Array.isArray(data.sources) ? data.sources : [];
       const sourceText = sources.length
-        ? \`\\n\\n---\\n### Sources\\n\${sources.map((s: any, i: number) => \`\${i + 1}. [\${s.title || 'Source'}](\${s.url})\`).join('\\n')}\`
+        ? `\\n\\n---\\n### Sources\\n${sources.map((s: any, i: number) => `${i + 1}. [${s.title || 'Source'}](${s.url})`).join('\\n')}`
         : '';
       const answer = (data.text || 'No research result was returned.') + sourceText;
 
@@ -560,7 +560,7 @@ Guidelines:
             <button
               type="button"
               onClick={() => setResearchMode((v) => !v)}
-              className={\`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer \${researchMode ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}\`}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${researchMode ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
               title="Research current information from the web with cited sources"
             >
               <Search className="w-3.5 h-3.5" />
