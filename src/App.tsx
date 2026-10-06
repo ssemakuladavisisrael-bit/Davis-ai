@@ -9,7 +9,8 @@ import {
   RotateCcw,
   ShieldAlert,
   Zap,
-  Brain
+  Brain,
+  Film
 } from 'lucide-react';
 import { Conversation, Message, ServerStatus, PersonaTone, ModelChoice } from './types';
 import { Sidebar } from './components/Sidebar';
@@ -66,6 +67,7 @@ export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVideoStudioOpen, setIsVideoStudioOpen] = useState(false);
+  const [videoStudioTopic, setVideoStudioTopic] = useState('');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -510,11 +512,14 @@ Guidelines:
             )}
 
             <button
-              onClick={() => setIsVideoStudioOpen(true)}
+              onClick={() => {
+                setVideoStudioTopic('');
+                setIsVideoStudioOpen(true);
+              }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-sm"
               title="Open Video Studio"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Film className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Create Video</span>
             </button>
 
@@ -548,6 +553,10 @@ Guidelines:
               onSelectPrompt={handleSendMessage}
               hasApiKey={Boolean(serverStatus?.hasApiKey)}
               onOpenHelp={() => setIsHelpOpen(true)}
+              onOpenVideoStudio={(top) => {
+                setVideoStudioTopic(top || '');
+                setIsVideoStudioOpen(true);
+              }}
             />
           ) : (
             <div className="py-4 space-y-1">
@@ -563,6 +572,10 @@ Guidelines:
                     isStreaming={isStreaming && isLastAssistant}
                     isLastAssistant={isLastAssistant}
                     onRetry={handleRetryLastTurn}
+                    onOpenVideoStudio={(top) => {
+                      setVideoStudioTopic(top || '');
+                      setIsVideoStudioOpen(true);
+                    }}
                   />
                 );
               })}
@@ -606,6 +619,7 @@ Guidelines:
       <VideoStudio
         isOpen={isVideoStudioOpen}
         onClose={() => setIsVideoStudioOpen(false)}
+        initialTopic={videoStudioTopic}
       />
 
       {/* Settings Modal */}

@@ -8,7 +8,8 @@ import {
   RotateCcw, 
   Volume2, 
   VolumeX, 
-  AlertCircle 
+  AlertCircle,
+  Film
 } from 'lucide-react';
 import { Message } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -18,6 +19,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   isLastAssistant?: boolean;
   onRetry?: () => void;
+  onOpenVideoStudio?: (topic?: string) => void;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -25,6 +27,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   isStreaming = false,
   isLastAssistant = false,
   onRetry,
+  onOpenVideoStudio,
 }) => {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<'liked' | 'disliked' | null>(null);
@@ -212,6 +215,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   <ThumbsDown className="w-3.5 h-3.5" />
                 </button>
               </div>
+
+              {/* Video Studio Action if relevant */}
+              {onOpenVideoStudio && (message.content.toLowerCase().includes('video') || message.content.toLowerCase().includes('scene') || message.content.toLowerCase().includes('storyboard')) && (
+                <button
+                  onClick={() => onOpenVideoStudio(message.content.slice(0, 80))}
+                  className="flex items-center gap-1 px-2 py-0.8 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer border border-indigo-200/80 font-medium text-[11px]"
+                  title="Open this concept in Davis Video Studio"
+                >
+                  <Film className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Render Video</span>
+                </button>
+              )}
 
               {/* Retry button for latest turn */}
               {isLastAssistant && onRetry && (

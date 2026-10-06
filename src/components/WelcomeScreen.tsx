@@ -5,7 +5,7 @@ import {
   Code2, 
   PenTool, 
   Lightbulb, 
-  Coffee, 
+  Film, 
   ArrowRight,
   ShieldCheck,
   Zap
@@ -15,6 +15,7 @@ interface WelcomeScreenProps {
   onSelectPrompt: (prompt: string) => void;
   hasApiKey: boolean;
   onOpenHelp: () => void;
+  onOpenVideoStudio?: (topic?: string) => void;
 }
 
 interface PromptSuggestion {
@@ -29,21 +30,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onSelectPrompt,
   hasApiKey,
   onOpenHelp,
+  onOpenVideoStudio,
 }) => {
   const suggestions: PromptSuggestion[] = [
     {
-      category: 'Learning',
-      icon: <GraduationCap className="w-4 h-4 text-emerald-600" />,
-      prompt: 'Explain quantum computing and superposition using a simple coin-flipping analogy.',
+      category: 'AI Video',
+      icon: <Film className="w-4 h-4 text-indigo-600" />,
+      prompt: 'Create an engaging 60-second educational video explaining how black holes bend space and time.',
+      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      hoverBorder: 'hover:border-indigo-300',
+    },
+    {
+      category: 'Programming',
+      icon: <Code2 className="w-4 h-4 text-emerald-600" />,
+      prompt: 'Write a TypeScript debounce function with proper generics, return types, and cleanup logic.',
       badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       hoverBorder: 'hover:border-emerald-300',
     },
     {
-      category: 'Programming',
-      icon: <Code2 className="w-4 h-4 text-indigo-600" />,
-      prompt: 'Write a TypeScript debounce function with proper generics, return types, and cleanup logic.',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      hoverBorder: 'hover:border-indigo-300',
+      category: 'Learning',
+      icon: <GraduationCap className="w-4 h-4 text-sky-600" />,
+      prompt: 'Explain quantum computing and superposition using a simple coin-flipping analogy.',
+      badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+      hoverBorder: 'hover:border-sky-300',
     },
     {
       category: 'Writing',
@@ -60,18 +69,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       hoverBorder: 'hover:border-purple-300',
     },
     {
-      category: 'Everyday Life',
-      icon: <Coffee className="w-4 h-4 text-rose-600" />,
-      prompt: 'Plan a high-protein 4-day lunch meal prep routine that takes under 45 minutes to cook.',
+      category: 'Deep Insight',
+      icon: <Zap className="w-4 h-4 text-rose-600" />,
+      prompt: 'Compare React 19 server components with traditional client rendering. What are the key trade-offs?',
       badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
       hoverBorder: 'hover:border-rose-300',
-    },
-    {
-      category: 'Deep Insight',
-      icon: <Zap className="w-4 h-4 text-sky-600" />,
-      prompt: 'Compare React 19 server components with traditional client rendering. What are the key trade-offs?',
-      badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-      hoverBorder: 'hover:border-sky-300',
     },
   ];
 
@@ -135,8 +137,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       {/* Capabilities feature footer */}
       <div className="mt-8 pt-6 border-t border-slate-100 w-full flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
         <div className="flex items-center gap-1.5">
+          <Film className="w-3.5 h-3.5 text-indigo-500" />
+          <span>AI Video Studio & Voiceover</span>
+        </div>
+        <div className="flex items-center gap-1.5">
           <Zap className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Real-time Gemini 3.8 Flash Streaming</span>
+          <span>Real-time Gemini Streaming</span>
         </div>
         <div className="flex items-center gap-1.5">
           <Code2 className="w-3.5 h-3.5 text-indigo-500" />

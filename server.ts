@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 
 dotenv.config();
 
@@ -19,6 +19,7 @@ Your goal is to assist users across a broad spectrum of tasks:
 - Writing & Communication: Draft emails, essays, stories, reports, and polish tone and grammar.
 - Programming & Engineering: Provide clean, bug-free, well-commented code snippets with concise architectural explanations, debugging tips, and best practices.
 - Brainstorming & Problem Solving: Generate creative, diverse, and practical ideas.
+- Video & Multimedia Creation: When the user asks to create or script a video, provide a captivating title, opening hook, and structured scenes with [Visual Direction] and spoken [Narration]. Remind them that they can render and download the actual video with AI voiceover using the "Create Video" Studio button!
 - Everyday Questions: Offer sensible, thoughtful, and pragmatic guidance.
 
 Guidelines:
@@ -324,18 +325,32 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to approxim
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        systemInstruction: 'You are Davis AI Video Director. Return strict JSON only.',
-        temperature: 0.7,
-        responseMimeType: 'application/json',
-      },
-    });
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: 'You are Davis AI Video Director. Return strict JSON only without markdown code fences.',
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+        },
+      });
+    } catch (primaryErr) {
+      console.warn('Video plan primary model failed, falling back to gemini-flash-latest:', primaryErr);
+      response = await ai.models.generateContent({
+        model: 'gemini-flash-latest',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: 'You are Davis AI Video Director. Return strict JSON only without markdown code fences.',
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+        },
+      });
+    }
 
     const raw = (response.text || '').trim();
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '');
+    const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
     const plan = JSON.parse(cleaned);
 
     if (!plan.title || !Array.isArray(plan.scenes) || plan.scenes.length === 0) {
@@ -345,196 +360,160 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to approxim
     res.json(plan);
   } catch (error: any) {
     console.error('Video planning error:', error);
-    res.status(500).json({ error: error?.message || 'Could not create the video storyboard.' });
+    res.status(500).json({ error: formatGeminiError(error) });
   }
 });
 
-
-/**
- * Generate a photorealistic AI video clip with Google's Veo 3.1.
- * Veo returns an asynchronous operation, so the server polls it and keeps
- * the Gemini API key private. The client receives the finished MP4 as base64.
- */
-app.post('/api/video/realistic', async (req, res) => {
+// AI Video Narration (TTS) endpoint
+app.post('/api/video/tts', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
     return;
   }
 
-  const { prompt, aspectRatio, resolution } = req.body || {};
-  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-    res.status(400).json({ error: 'A realistic video prompt is required.' });
+  const { text, voiceName } = req.body || {};
+  if (!text || typeof text !== 'string') {
+    res.status(400).json({ error: 'Text is required for TTS synthesis.' });
     return;
   }
 
-  const safePrompt = prompt.trim().slice(0, 7000);
-  const safeAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
-  const safeResolution = resolution === '1080p' ? '1080p' : '720p';
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash-lite-tts',
+      contents: [{ role: 'user', parts: [{ text: text.slice(0, 600) }] }],
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: voiceName || 'Puck' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      throw new Error('No audio data received from Gemini TTS.');
+    }
+
+    res.json({ audioBase64: base64Audio, mimeType: 'audio/wav' });
+  } catch (err: any) {
+    console.error('Video TTS error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to synthesize narration audio.' });
+  }
+});
+
+// Google Veo AI Video generation (Start operation)
+app.post('/api/video/veo', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { prompt, resolution, aspectRatio } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') {
+    res.status(400).json({ error: 'Prompt is required for Veo generation.' });
+    return;
+  }
 
   try {
-    const startResponse = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning',
-      {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          instances: [{ prompt: safePrompt }],
-          parameters: {
-            aspectRatio: safeAspectRatio,
-            resolution: safeResolution,
-            numberOfVideos: 1,
-          },
-        }),
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    const operation = await ai.models.generateVideos({
+      model: 'veo-3.1-lite-generate-preview',
+      prompt,
+      config: {
+        numberOfVideos: 1,
+        resolution: resolution === '1080p' ? '1080p' : '720p',
+        aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
       },
-    );
+    });
 
-    const startData = await startResponse.json();
-    if (!startResponse.ok || !startData.name) {
-      throw new Error(startData?.error?.message || 'Veo could not start video generation.');
-    }
+    res.json({ operationName: operation.name });
+  } catch (err: any) {
+    console.error('Veo video generation error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to start Veo video generation.' });
+  }
+});
 
-    const operationName = startData.name;
-    let operationData: any = null;
+// Google Veo AI Video generation (Poll status)
+app.post('/api/video/veo/status', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
 
-    // Veo generation is asynchronous. Poll for up to 5 minutes.
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
+  const { operationName } = req.body || {};
+  if (!operationName) {
+    res.status(400).json({ error: 'operationName is required.' });
+    return;
+  }
 
-      const statusResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${operationName}`,
-        { headers: { 'x-goog-api-key': apiKey } },
-      );
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
 
-      operationData = await statusResponse.json();
+    const op = new GenerateVideosOperation();
+    op.name = operationName;
+    const updated = await ai.operations.getVideosOperation({ operation: op });
+    res.json({ done: Boolean(updated.done), error: updated.error });
+  } catch (err: any) {
+    console.error('Veo video status error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to check Veo operation status.' });
+  }
+});
 
-      if (operationData?.done) break;
-    }
+// Google Veo AI Video generation (Download video)
+app.post('/api/video/veo/download', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
 
-    if (!operationData?.done) {
-      res.status(202).json({
-        status: 'processing',
-        message: 'The realistic video is still being generated. Please try again shortly.',
-        operationName,
-      });
+  const { operationName } = req.body || {};
+  if (!operationName) {
+    res.status(400).json({ error: 'operationName is required.' });
+    return;
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    const op = new GenerateVideosOperation();
+    op.name = operationName;
+    const updated = await ai.operations.getVideosOperation({ operation: op });
+    const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+    if (!uri) {
+      res.status(404).json({ error: 'Video URI not found or video generation incomplete.' });
       return;
     }
 
-    if (operationData.error) {
-      throw new Error(operationData.error.message || 'Veo video generation failed.');
-    }
-
-    const generated =
-      operationData?.response?.generateVideoResponse?.generatedSamples?.[0]?.video ||
-      operationData?.response?.generatedVideos?.[0]?.video;
-
-    if (!generated?.uri) {
-      throw new Error('Veo completed without returning a video file.');
-    }
-
-    const videoResponse = await fetch(generated.uri, {
+    const videoRes = await fetch(uri, {
       headers: { 'x-goog-api-key': apiKey },
     });
-
-    if (!videoResponse.ok) {
-      throw new Error('The generated video could not be downloaded from Veo.');
-    }
-
-    const buffer = Buffer.from(await videoResponse.arrayBuffer());
-
     res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Content-Length', buffer.length.toString());
-    res.setHeader('Content-Disposition', 'inline; filename="davis-ai-realistic.mp4"');
-    res.send(buffer);
-  } catch (error: any) {
-    console.error('Realistic video generation error:', error);
-    res.status(500).json({
-      error: error?.message || 'Could not generate the realistic AI video.',
-    });
-  }
-});
-
-
-/**
- * Generate a longer realistic video by using Veo's native video-extension
- * capability. Veo generates an initial clip, then extends that Veo clip in
- * roughly 7-second increments until the requested duration is reached.
- */
-app.post('/api/video/long', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
-    return;
-  }
-
-  const { prompt, duration, aspectRatio, resolution } = req.body || {};
-  if (!prompt || typeof prompt !== 'string') {
-    res.status(400).json({ error: 'A video prompt is required.' });
-    return;
-  }
-
-  const target = Math.min(120, Math.max(8, Number(duration) || 60));
-  const ratio = aspectRatio === '9:16' ? '9:16' : '16:9';
-  const quality = resolution === '1080p' ? '1080p' : '720p';
-
-  const startJob = async (videoBase64?: string) => {
-    const body = videoBase64
-      ? {
-          instances: [{ prompt: prompt.slice(0, 7000), video: { inlineData: { mimeType: 'video/mp4', data: videoBase64 } } }],
-          parameters: { resolution: '720p', numberOfVideos: 1 },
-        }
-      : {
-          instances: [{ prompt: prompt.slice(0, 7000) }],
-          parameters: { aspectRatio: ratio, resolution: quality, numberOfVideos: 1 },
-        };
-
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning', {
-      method: 'POST',
-      headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    if (!response.ok || !data.name) throw new Error(data?.error?.message || 'Veo could not start the video job.');
-    return data.name;
-  };
-
-  const waitForJob = async (name: string) => {
-    for (let attempt = 0; attempt < 36; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/' + name, { headers: { 'x-goog-api-key': apiKey } });
-      const data = await response.json();
-      if (data.done) {
-        if (data.error) throw new Error(data.error.message || 'Veo video generation failed.');
-        const video = data?.response?.generateVideoResponse?.generatedSamples?.[0]?.video || data?.response?.generatedVideos?.[0]?.video;
-        if (!video?.uri) throw new Error('Veo completed without a video URI.');
-        const fileResponse = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey } });
-        if (!fileResponse.ok) throw new Error('Generated video could not be downloaded.');
-        return Buffer.from(await fileResponse.arrayBuffer());
-      }
-    }
-    throw new Error('Video generation timed out. Please try again.');
-  };
-
-  try {
-    let current = await waitForJob(await startJob());
-    let seconds = 8;
-
-    // Veo extension adds about 7 seconds per operation and supports up to 20 extensions.
-    while (seconds < target) {
-      current = await waitForJob(await startJob(current.toString('base64')));
-      seconds += 7;
-    }
-
-    res.setHeader('Content-Type', 'video/mp4');
-    res.setHeader('Content-Length', current.length.toString());
-    res.setHeader('Content-Disposition', 'inline; filename="davis-ai-realistic-long.mp4"');
-    res.send(current);
-  } catch (error: any) {
-    console.error('Long realistic video generation error:', error);
-    res.status(500).json({ error: error?.message || 'Could not generate the longer realistic video.' });
+    const arrayBuffer = await videoRes.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (err: any) {
+    console.error('Veo video download error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to download Veo video.' });
   }
 });
 
