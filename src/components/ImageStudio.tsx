@@ -40,12 +40,28 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
 
   const download = () => {
     if (!imageUrl) return;
-    const a = document.createElement('a');
-    a.href = imageUrl;
-    a.download = `davis-ai-image-${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    try {
+      const [meta, base64] = imageUrl.split(',');
+      const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/png';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `davis-ai-image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+    } catch {
+      const a = document.createElement('a');
+      a.href = imageUrl;
+      a.download = `davis-ai-image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
   };
 
   return (
