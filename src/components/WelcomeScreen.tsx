@@ -15,6 +15,7 @@ interface WelcomeScreenProps {
   onSelectPrompt: (prompt: string) => void;
   hasApiKey: boolean;
   onOpenHelp: () => void;
+  onOpenImageStudio?: () => void;
   onOpenVideoStudio?: (topic?: string) => void;
   onOpenCourseworkVideo?: () => void;
 }
@@ -31,6 +32,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onSelectPrompt,
   hasApiKey,
   onOpenHelp,
+  onOpenImageStudio,
   onOpenVideoStudio,
   onOpenCourseworkVideo,
 }) => {
@@ -108,6 +110,23 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </div>
         )}
       </div>
+
+      {onOpenImageStudio && (
+        <button
+          onClick={onOpenImageStudio}
+          className="w-full mb-4 p-4 rounded-2xl border border-violet-200 bg-violet-50/70 hover:bg-violet-100/70 hover:border-violet-300 shadow-sm transition-all text-left group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-violet-600 text-white"><Sparkles className="w-5 h-5" /></div>
+            <div className="flex-1">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Image Generation</div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-1">Create images with Davis AI</h2>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1">Generate posters, illustrations, educational visuals and creative images from prompts.</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-violet-500 group-hover:translate-x-1 transition-transform shrink-0" />
+          </div>
+        </button>
+      )}
 
       {/* Suggested prompts grid */}
       {/* Featured coursework template */}
