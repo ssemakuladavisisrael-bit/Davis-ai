@@ -312,7 +312,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     return bytes.buffer;
   };
 
-  const handleGenerateVoiceover = async (customPlan?: VideoPlan) => {
+  const handleGenerateVoiceover = async (customPlan?: VideoPlan, forceRegenerate = false) => {
     const targetPlan = customPlan || plan;
     if (!targetPlan || isGeneratingVoice) return;
     setIsGeneratingVoice(true);
@@ -320,14 +320,14 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     try {
       const updatedScenes: Scene[] = await Promise.all(
         targetPlan.scenes.map(async (scene) => {
-          if (scene.audioBase64) return scene;
+          if (scene.audioBase64 && !forceRegenerate) return scene;
           const fetched = await fetchSceneAudio(scene.narration, voiceName);
           return fetched ? { ...scene, audioBase64: fetched.base64 } : scene;
         })
       );
 
       let closingAudioBase64 = targetPlan.closingAudioBase64;
-      if (!closingAudioBase64) {
+      if (!closingAudioBase64 || forceRegenerate) {
         const closingFetched = await fetchSceneAudio(targetPlan.closing, voiceName);
         if (closingFetched) closingAudioBase64 = closingFetched.base64;
       }
@@ -1478,7 +1478,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                         <div className="text-xs font-bold text-indigo-900 flex items-center gap-1.5"><Volume2 className="h-4 w-4" /> Voiceover</div>
                         <p className="text-[11px] text-indigo-700 mt-0.5">{voiceoverReady ? "Ready — " + voiceName + " narration is attached to the video." : "Generate the spoken narration before exporting."}</p>
                       </div>
-                      <button onClick={handleGenerateVoiceover} disabled={isGeneratingVoice || isRendering || isPlayingLive} className="shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold flex items-center gap-2 disabled:opacity-50 cursor-pointer">
+                      <button onClick={() => handleGenerateVoiceover(undefined, true)} disabled={isGeneratingVoice || isRendering || isPlayingLive} className="shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold flex items-center gap-2 disabled:opacity-50 cursor-pointer">
                         {isGeneratingVoice ? <Loader2 className="h-4 w-4 animate-spin" /> : voiceoverReady ? <CheckCircle2 className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                         <span>{isGeneratingVoice ? "Generating Voice…" : voiceoverReady ? "Regenerate Voice" : "Generate Voiceover"}</span>
                       </button>
