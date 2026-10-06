@@ -294,7 +294,9 @@ app.post('/api/video/plan', async (req, res) => {
   }
 
   const requestedDuration = Math.min(180, Math.max(60, Number(duration) || 90));
-  const sceneCount = requestedDuration <= 90 ? 6 : 8;
+  const sceneCount = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
+  const closingSeconds = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
+  const sceneSecondsTotal = requestedDuration - closingSeconds;
 
   const prompt = `Create a concise educational video storyboard.
 Topic: ${topic}
@@ -317,7 +319,7 @@ Return ONLY valid JSON with this exact shape:
   "closing": "short closing message"
 }
 
-Use exactly ${sceneCount} scenes. Their seconds values should add up to approximately ${requestedDuration - 3} seconds. Keep narration natural and short enough to fit each scene. Make the visual descriptions clear enough for a future AI image/video generator. Do not use markdown fences.`;
+Use exactly ${sceneCount} scenes. Their seconds values should add up to exactly ${sceneSecondsTotal} seconds in total. The closing is exactly ${closingSeconds} seconds. Keep narration natural and short enough to fit each scene. Make the visual descriptions clear enough for a future AI image/video generator. Do not use markdown fences.`;
 
   try {
     const ai = new GoogleGenAI({
@@ -353,10 +355,26 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to approxim
     const cleaned = raw.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
     const plan = JSON.parse(cleaned);
 
-    if (!plan.title || !Array.isArray(plan.scenes) || plan.scenes.length === 0) {
-      throw new Error('The AI returned an incomplete storyboard.');
+    if (!plan.title || !Array.isArray(plan.scenes) || plan.scenes.length !== sceneCount || typeof plan.closing !== 'string') {
+      throw new Error(`The AI returned an incomplete storyboard. Expected exactly ${sceneCount} scenes.`);
     }
 
+    // Normalize the AI plan so the browser renderer always has a deterministic total duration.
+    const rawScenes = plan.scenes.map((scene: any) => ({
+      title: typeof scene?.title === 'string' && scene.title.trim() ? scene.title.trim() : 'Scene',
+      narration: typeof scene?.narration === 'string' ? scene.narration.trim() : '',
+      visual: typeof scene?.visual === 'string' ? scene.visual.trim() : '',
+      seconds: Number(scene?.seconds) || 1,
+    }));
+
+    const evenSeconds = Math.floor(sceneSecondsTotal / sceneCount);
+    let remainder = sceneSecondsTotal - evenSeconds * sceneCount;
+    plan.scenes = rawScenes.map((scene: any) => {
+      const seconds = evenSeconds + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder -= 1;
+      return { ...scene, seconds };
+    });
+    plan.closingSeconds = closingSeconds;
     res.json(plan);
   } catch (error: any) {
     console.error('Video planning error:', error);
