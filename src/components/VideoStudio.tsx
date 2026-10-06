@@ -1000,11 +1000,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const combinedStream = new MediaStream(combinedTracks);
 
-    // Prefer direct MP4 recording first. Fall back only when this browser does not support MP4.
+    // WebM-only export.
     const candidates = [
-      'video/mp4;codecs=avc1.424028,mp4a.40.2',
-      'video/mp4',
-      'video/mp4;codecs=avc1.64003E,mp4a.40.2',
       'video/webm;codecs=vp8,opus',
       'video/webm;codecs=vp9,opus',
       'video/webm'
@@ -1015,7 +1012,6 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       MediaRecorder.isTypeSupported(c)
     );
     const mime = supportedCandidates[0] || 'video/webm';
-    const isDirectMp4 = false;
 
     const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
     const chunks: Blob[] = [];
@@ -1036,7 +1032,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
 
     // Timeslice = 250ms flushes data chunks continuously to avoid empty buffers
-    recorder.start(250);
+    recorder.start();
 
     const totalScenes = plan.scenes.length;
 
