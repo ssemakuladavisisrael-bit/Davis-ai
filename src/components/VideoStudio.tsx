@@ -275,7 +275,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     if (!isClosing) {
       // A cartoon presenter appears on EVERY slide and visually "explains" the lesson.
-      drawExplainingCartoon(ctx, w - 330, 92, index, scene.title);
+      drawExplainingCartoon(ctx, w - 330, 92, index, scene.title, timeFraction);
 
       // Scene indicator pill
       ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
@@ -366,9 +366,16 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     x: number,
     y: number,
     sceneIndex: number,
-    message: string
+    message: string,
+    timeFraction = 0
   ) => {
     ctx.save();
+
+    // Animated presenter: gentle body bob, blinking and visible talking mouth.
+    const talk = Math.max(0, Math.sin(timeFraction * Math.PI * 22));
+    const bob = Math.sin(timeFraction * Math.PI * 4) * 3;
+    const blink = Math.sin(timeFraction * Math.PI * 7 + sceneIndex) > 0.97;
+    y += bob;
 
     // Friendly cartoon teacher/presenter
     const skin = sceneIndex % 2 === 0 ? '#8d5524' : '#f2c6a0';
@@ -416,25 +423,41 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     ctx.arc(x + 248, y + 61, 24, Math.PI, Math.PI * 2);
     ctx.fill();
 
-    // Eyes + smile
+    // Eyes + blinking
     ctx.fillStyle = '#172033';
-    ctx.beginPath();
-    ctx.arc(x + 240, y + 68, 2.5, 0, Math.PI * 2);
-    ctx.arc(x + 256, y + 68, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#172033';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x + 248, y + 75, 8, 0.15, Math.PI - 0.15);
-    ctx.stroke();
+    if (blink) {
+      ctx.strokeStyle = '#172033';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 236, y + 68); ctx.lineTo(x + 244, y + 68);
+      ctx.moveTo(x + 252, y + 68); ctx.lineTo(x + 260, y + 68);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(x + 240, y + 68, 2.5, 0, Math.PI * 2);
+      ctx.arc(x + 256, y + 68, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    // Pointing arm toward the speech bubble
+    // Clearly visible animated mouth: opens and closes while the presenter speaks.
+    ctx.fillStyle = '#4a1717';
+    ctx.beginPath();
+    ctx.ellipse(x + 248, y + 77, 5, 2.5 + talk * 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (talk > 0.35) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(x + 248, y + 74.5, 3.5, 1.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Speaking arm movement
     ctx.strokeStyle = skin;
     ctx.lineWidth = 7;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x + 228, y + 101);
-    ctx.lineTo(x + 194, y + 72);
+    ctx.lineTo(x + 194, y + 72 + Math.sin(timeFraction * Math.PI * 8) * 5);
     ctx.stroke();
 
     // Small learning star/badge
@@ -646,9 +669,13 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
 
-    recorder.start();
-
     const ctx = canvas.getContext('2d')!;
+
+    // Paint an initial frame before recording so the captured stream is never empty.
+    if (plan.scenes.length > 0) {
+      drawSceneFrame(ctx, plan.scenes[0], 0, plan.scenes.length, 0, plan.title);
+    }
+    recorder.start();
 
     // Play and render each scene
     const totalScenes = plan.scenes.length;
@@ -717,10 +744,17 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       }
     }
 
-    recorder.stop();
-    await new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
+    const recorderStopped = new Promise<void>((resolve) => {
+      recorder.addEventListener('stop', () => resolve(), { once: true });
     });
+    recorder.stop();
+    await recorderStopped;
+
+    // Stop audio capture cleanly after the final video frame.
+    combinedStream.getTracks().forEach((track) => track.stop());
+    if (audioCtx && audioCtx.state !== 'closed') {
+      await audioCtx.close().catch(() => {});
+    }
 
     const finalBlob = new Blob(chunks, { type: mime });
     if (videoUrl) URL.revokeObjectURL(videoUrl);
