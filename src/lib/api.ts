@@ -2,11 +2,11 @@ const API_BASE_STORAGE_KEY = 'davis-ai-api-base';
 
 export function getApiBase(): string {
   const configured = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (configured) return configured.replace(/\\/$/, '');
+  if (configured) return configured.replace(/\/$/, '');
 
   try {
     const saved = localStorage.getItem(API_BASE_STORAGE_KEY)?.trim();
-    if (saved) return saved.replace(/\\/$/, '');
+    if (saved) return saved.replace(/\/$/, '');
   } catch {}
 
   return '';
@@ -23,7 +23,7 @@ export function isGitHubPagesHost(): boolean {
 
 export function saveApiBase(value: string): void {
   try {
-    const cleaned = value.trim().replace(/\\/$/, '');
+    const cleaned = value.trim().replace(/\/$/, '');
     if (cleaned) localStorage.setItem(API_BASE_STORAGE_KEY, cleaned);
     else localStorage.removeItem(API_BASE_STORAGE_KEY);
   } catch {}
