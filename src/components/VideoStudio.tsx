@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { fixWebmDuration } from '@fix-webm-duration/fix';
+import fixWebmDuration from 'webm-duration-fix';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { 
@@ -1138,11 +1138,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       );
     }
 
-    const finalBlob = await fixWebmDuration(
-      recordedBlob,
-      Math.round((recordedDurationSec ?? expectedDurationSec) * 1000),
-      { logger: false }
-    );
+    const finalBlob = await fixWebmDuration(recordedBlob);
     const finalType: 'mp4' | 'webm' = 'webm';
 
     if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -1151,7 +1147,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setVideoUrl(newBlobUrl);
     setIsRendering(false);
     setRenderProgress(100);
-    setRenderStatusText('2-minute WebM video generated successfully — duration metadata fixed and ready to download.');
+    setRenderStatusText('2-minute WebM video generated successfully — duration repaired and ready to download.');
   };
 
   const handleStopRendering = () => {
