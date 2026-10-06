@@ -1138,12 +1138,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     }
 
     let finalBlob = recordedBlob;
-    let finalType: 'mp4' | 'webm' = 'webm';
+    let finalType: 'mp4' | 'webm' = isDirectMp4 ? 'mp4' : 'webm';
 
-    // Convert the validated WebM to WhatsApp-friendly H.264/AAC MP4.
-    if (finalType === 'webm') {
+    // If direct MP4 is unsupported, convert the fallback recording to standard H.264/AAC MP4.
+    if (!isDirectMp4) {
       setIsConvertingMp4(true);
-      setRenderStatusText('Converting video to WhatsApp-compatible MP4…');
+      setRenderStatusText('Converting fallback recording to MP4…');
       try {
         const ffmpeg = ffmpegRef.current;
         if (!ffmpegLoadedRef.current) {
@@ -1198,9 +1198,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setVideoUrl(newBlobUrl);
     setIsRendering(false);
     setRenderProgress(100);
-    setRenderStatusText(finalType === 'mp4'
-      ? 'MP4 video generated successfully — full duration verified and ready for WhatsApp!'
-      : 'Video file generated successfully — full duration verified!');
+    if (finalType !== 'mp4') {
+      setIsRendering(false);
+      throw new Error('Davis AI could not produce the required MP4 file on this device.');
+    }
+    setRenderStatusText('2-minute MP4 video generated successfully — ready to download.');
   };
 
   const handleStopRendering = () => {
