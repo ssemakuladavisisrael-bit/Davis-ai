@@ -334,7 +334,8 @@ function buildECDCourseworkPlan() {
         seconds: 12
       }
     ],
-    closing: 'Use clear prompts, review every AI response, and keep children safe. Thank you.'
+    closing: 'Use clear prompts, review every AI response, and keep children safe. Thank you.',
+    closingSeconds: 8
   };
 }
 
