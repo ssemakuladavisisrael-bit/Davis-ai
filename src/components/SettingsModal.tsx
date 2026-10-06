@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sliders, Trash2, Check, RefreshCw, Zap, Brain } from 'lucide-react';
 import { PersonaTone, ModelChoice } from '../types';
+import { getApiBase, saveApiBase, clearApiBase, isGitHubPagesHost } from '../lib/api';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -27,6 +28,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [tempInstruction, setTempInstruction] = useState(customInstruction);
+  const [apiBase, setApiBase] = useState(() => getApiBase());
+  const [apiBaseSaved, setApiBaseSaved] = useState(false);
 
   if (!isOpen) return null;
 
@@ -66,6 +69,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-5 text-sm text-slate-700">
+          {/* Backend Connection */}
+          <div className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Davis AI Backend</label>
+                <p className="text-[11px] text-indigo-700/80 mt-1">Required for Chat, Image Studio, Video and Research on GitHub Pages.</p>
+              </div>
+              {apiBaseSaved && <span className="text-[11px] font-semibold text-emerald-600">Saved</span>}
+            </div>
+            <input
+              value={apiBase}
+              onChange={(e) => { setApiBase(e.target.value); setApiBaseSaved(false); }}
+              placeholder="https://your-davis-ai-backend.example.com"
+              className="w-full rounded-xl border border-indigo-200 bg-white p-3 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              inputMode="url"
+            />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { saveApiBase(apiBase); setApiBase(apiBase.trim()); setApiBaseSaved(true); window.location.reload(); }} className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">Save & Reload</button>
+              <button type="button" onClick={() => { clearApiBase(); setApiBase(''); setApiBaseSaved(true); }} className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold">Use Current Site</button>
+            </div>
+            {isGitHubPagesHost() && !apiBase && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">This GitHub Pages site is static. Deploy the Davis AI server to Google AI Studio/Cloud Run (or another Node host), then paste its URL here. Your Gemini key stays on the server.</p>
+            )}
+          </div>
+
           {/* AI Model Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
