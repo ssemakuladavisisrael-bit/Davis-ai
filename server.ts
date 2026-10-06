@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { writeFile, unlink } from 'fs/promises';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 
 dotenv.config();
@@ -110,6 +111,73 @@ app.get('/api/health', (req, res) => {
     appName: 'Davis AI',
     availableModels: AVAILABLE_MODELS,
   });
+});
+
+// MP4 video analysis endpoint. Davis AI can accept an MP4 directly and ask Gemini to understand it.
+app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }), async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const body = req.body;
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    res.status(400).json({ error: 'Please upload a valid MP4 video.' });
+    return;
+  }
+
+  const promptHeader = req.headers['x-video-prompt'];
+  const prompt = typeof promptHeader === 'string'
+    ? decodeURIComponent(promptHeader)
+    : 'Analyze this MP4 video and explain the main content, important scenes, key points, and useful improvements.';
+
+  const tempPath = path.join(__dirname, 'davis-ai-video-' + Date.now() + '.mp4');
+
+  try {
+    await writeFile(tempPath, body);
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+    });
+
+    let videoFile = await ai.files.upload({
+      file: tempPath,
+      config: { mimeType: 'video/mp4' },
+    });
+
+    let attempts = 0;
+    while (videoFile.state?.toString() === 'PROCESSING' && attempts < 30) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      videoFile = await ai.files.get({ name: videoFile.name });
+      attempts++;
+    }
+
+    if (videoFile.state?.toString() === 'FAILED') {
+      throw new Error('Gemini could not process this MP4 video.');
+    }
+    if (videoFile.state?.toString() !== 'ACTIVE') {
+      throw new Error('MP4 processing timed out. Please try a shorter video.');
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: [{
+        role: 'user',
+        parts: [
+          { fileData: { fileUri: videoFile.uri, mimeType: videoFile.mimeType || 'video/mp4' } },
+          { text: prompt },
+        ],
+      }],
+    });
+
+    res.json({ text: response.text || '', mimeType: 'video/mp4' });
+  } catch (error: any) {
+    console.error('MP4 analysis error:', error);
+    res.status(500).json({ error: formatGeminiError(error) });
+  } finally {
+    try { await unlink(tempPath); } catch {}
+  }
 });
 
 // Streaming chat endpoint
