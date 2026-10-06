@@ -457,6 +457,87 @@ app.post('/api/video/realistic', async (req, res) => {
   }
 });
 
+
+/**
+ * Generate a longer realistic video by using Veo's native video-extension
+ * capability. Veo generates an initial clip, then extends that Veo clip in
+ * roughly 7-second increments until the requested duration is reached.
+ */
+app.post('/api/video/long', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { prompt, duration, aspectRatio, resolution } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') {
+    res.status(400).json({ error: 'A video prompt is required.' });
+    return;
+  }
+
+  const target = Math.min(120, Math.max(8, Number(duration) || 60));
+  const ratio = aspectRatio === '9:16' ? '9:16' : '16:9';
+  const quality = resolution === '1080p' ? '1080p' : '720p';
+
+  const startJob = async (videoBase64?: string) => {
+    const body = videoBase64
+      ? {
+          instances: [{ prompt: prompt.slice(0, 7000), video: { inlineData: { mimeType: 'video/mp4', data: videoBase64 } } }],
+          parameters: { resolution: '720p', numberOfVideos: 1 },
+        }
+      : {
+          instances: [{ prompt: prompt.slice(0, 7000) }],
+          parameters: { aspectRatio: ratio, resolution: quality, numberOfVideos: 1 },
+        };
+
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-generate-preview:predictLongRunning', {
+      method: 'POST',
+      headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.name) throw new Error(data?.error?.message || 'Veo could not start the video job.');
+    return data.name;
+  };
+
+  const waitForJob = async (name: string) => {
+    for (let attempt = 0; attempt < 36; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/' + name, { headers: { 'x-goog-api-key': apiKey } });
+      const data = await response.json();
+      if (data.done) {
+        if (data.error) throw new Error(data.error.message || 'Veo video generation failed.');
+        const video = data?.response?.generateVideoResponse?.generatedSamples?.[0]?.video || data?.response?.generatedVideos?.[0]?.video;
+        if (!video?.uri) throw new Error('Veo completed without a video URI.');
+        const fileResponse = await fetch(video.uri, { headers: { 'x-goog-api-key': apiKey } });
+        if (!fileResponse.ok) throw new Error('Generated video could not be downloaded.');
+        return Buffer.from(await fileResponse.arrayBuffer());
+      }
+    }
+    throw new Error('Video generation timed out. Please try again.');
+  };
+
+  try {
+    let current = await waitForJob(await startJob());
+    let seconds = 8;
+
+    // Veo extension adds about 7 seconds per operation and supports up to 20 extensions.
+    while (seconds < target) {
+      current = await waitForJob(await startJob(current.toString('base64')));
+      seconds += 7;
+    }
+
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Length', current.length.toString());
+    res.setHeader('Content-Disposition', 'inline; filename="davis-ai-realistic-long.mp4"');
+    res.send(current);
+  } catch (error: any) {
+    console.error('Long realistic video generation error:', error);
+    res.status(500).json({ error: error?.message || 'Could not generate the longer realistic video.' });
+  }
+});
+
 // Setup Vite middlewares in development or static serving in production
 async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
