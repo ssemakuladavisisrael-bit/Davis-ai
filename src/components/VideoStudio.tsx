@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import fixWebmDuration from 'webm-duration-fix';
+import { fixWebmDuration } from '@fix-webm-duration/fix';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { 
@@ -1031,7 +1031,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       drawSceneFrame(ctx, plan.scenes[0], 0, plan.scenes.length, 0, plan.title);
     }
 
-    // Timeslice = 250ms flushes data chunks continuously to avoid empty buffers
+    // Record continuously; the final dataavailable event is emitted when stop() is called.
+    const recordingStartedAt = performance.now();
     recorder.start();
 
     const totalScenes = plan.scenes.length;
@@ -1134,7 +1135,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       );
     }
 
-    const finalBlob = await fixWebmDuration(recordedBlob);
+    const measuredRecordingMs = Math.max(1000, Math.round(performance.now() - recordingStartedAt));
+    const finalBlob = await fixWebmDuration(recordedBlob, measuredRecordingMs, { logger: false });
     const finalType: 'mp4' | 'webm' = 'webm';
 
     if (videoUrl) URL.revokeObjectURL(videoUrl);
