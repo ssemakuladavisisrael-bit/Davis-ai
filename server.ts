@@ -352,6 +352,13 @@ app.post('/api/video/plan', async (req, res) => {
     return;
   }
 
+  const isECDCoursework = /His Grace Nursery|Bahai Road|Early Childhood Development|basic prompting/i.test(topic);
+
+  if (isECDCoursework && Number(duration) === 120) {
+    res.json(buildECDCourseworkPlan());
+    return;
+  }
+
   const requestedDuration = Math.min(180, Math.max(60, Number(duration) || 90));
   const sceneCount = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
   const closingSeconds = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
@@ -506,8 +513,8 @@ app.post('/api/video/tts', async (req, res) => {
       });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash-lite-tts',
-        contents: [{ role: 'user', parts: [{ text: text.slice(0, 600) }] }],
+        model: 'gemini-3.8-flash-tts',
+        contents: [{ role: 'user', parts: [{ text: text.slice(0, 1200) }] }],
         config: {
           responseModalities: ['AUDIO'],
           speechConfig: {
