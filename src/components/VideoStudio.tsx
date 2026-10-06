@@ -35,6 +35,7 @@ export type VideoPlan = {
   hook: string;
   scenes: Scene[];
   closing: string;
+  closingSeconds?: number;
 };
 
 export type VideoStudioConfig = {
@@ -607,7 +608,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       while (performance.now() - closeStart < closeMs) {
         if (stopLivePlayRef.current) break;
         const fraction = Math.min(1, (performance.now() - closeStart) / closeMs);
-        drawSceneFrame(ctx, closeSceneObj, totalScenes, totalScenes, fraction, plan.title, true);
+        drawSceneFrame(ctx, closeSceneObj, totalScenes, totalScenes, fraction, plan.title, true, 0);
         await new Promise((r) => requestAnimationFrame(r));
       }
     }
@@ -759,7 +760,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     if (!stopRenderingRef.current) {
       setRenderStatusText('Recording outro scene...');
       setCurrentPreviewScene(totalScenes);
-      const closingDurationSec = closingBuffer ? Math.max(closingBuffer.duration + 0.5, 3.0) : 3.5;
+      const closingDurationSec = plan.closingSeconds ?? 4;
 
       if (closingBuffer && audioCtx && audioDest) {
         const source = audioCtx.createBufferSource();
@@ -797,6 +798,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       await audioCtx.close().catch(() => {});
     }
 
+    if (chunks.length === 0) throw new Error('No video data was recorded. Please try rendering again.');
     const finalBlob = new Blob(chunks, { type: mime });
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     const newBlobUrl = URL.createObjectURL(finalBlob);
