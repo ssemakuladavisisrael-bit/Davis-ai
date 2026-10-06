@@ -724,8 +724,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '' }: VideoStudioP
                     onChange={(e) => setDuration(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 p-2 text-xs bg-white text-slate-800"
                   >
-                    <option value="45">45 seconds (4 scenes)</option>
-                    <option value="60">60 seconds (5 scenes)</option>
+                                        <option value="60">60 seconds (5 scenes)</option>
                     <option value="90">90 seconds (6 scenes)</option>
                     <option value="120">2 minutes (8 scenes)</option>
                   </select>
