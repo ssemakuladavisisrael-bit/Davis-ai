@@ -1093,8 +1093,14 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       await audioCtx.close().catch(() => {});
     }
 
-    if (chunks.length === 0) throw new Error('No video data was recorded. Please try rendering again.');
-    if (recorderError) throw recorderError;
+    if (chunks.length === 0) {
+      setIsRendering(false);
+      throw new Error('No video data was recorded. Please try rendering again.');
+    }
+    if (recorderError) {
+      setIsRendering(false);
+      throw recorderError;
+    }
 
     const recordedBlob = new Blob(chunks, { type: mime });
     const expectedDurationSec = plan.scenes.reduce((acc, s) => acc + s.seconds, 0) + (plan.closingSeconds ?? 4);
@@ -1103,6 +1109,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setRenderStatusText('Checking recorded video duration…');
     const recordedDurationSec = await getBlobDurationSeconds(recordedBlob);
     if (recordedDurationSec < minimumAcceptableDurationSec) {
+      setIsRendering(false);
       throw new Error(
         'Export stopped because the recording was only ' + recordedDurationSec.toFixed(1) +
         's; the video should be about ' + expectedDurationSec + 's. Keep this page open and the screen awake during export, then try again.'
@@ -1155,6 +1162,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         } catch {}
       } catch (conversionError) {
         console.error('MP4 conversion failed:', conversionError);
+        setIsRendering(false);
         throw new Error('MP4 conversion failed on this device. Please try exporting again or use a newer Chrome/Edge browser.');
       } finally {
         setIsConvertingMp4(false);
@@ -1168,8 +1176,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsRendering(false);
     setRenderProgress(100);
     setRenderStatusText(finalType === 'mp4'
-      ? 'MP4 video generated successfully — ready for WhatsApp!'
-      : 'Video file generated successfully!');
+      ? 'MP4 video generated successfully — full duration verified and ready for WhatsApp!'
+      : 'Video file generated successfully — full duration verified!');
   };
 
   const handleStopRendering = () => {
