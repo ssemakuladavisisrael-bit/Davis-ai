@@ -445,15 +445,10 @@ app.post('/api/video/realistic', async (req, res) => {
 
     const buffer = Buffer.from(await videoResponse.arrayBuffer());
 
-    res.json({
-      status: 'completed',
-      mimeType: 'video/mp4',
-      videoBase64: buffer.toString('base64'),
-      provider: 'Google Veo 3.1',
-      durationSeconds: 8,
-      aspectRatio: safeAspectRatio,
-      resolution: safeResolution,
-    });
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Content-Disposition', 'inline; filename="davis-ai-realistic.mp4"');
+    res.send(buffer);
   } catch (error: any) {
     console.error('Realistic video generation error:', error);
     res.status(500).json({
