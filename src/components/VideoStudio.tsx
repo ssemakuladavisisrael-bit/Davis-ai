@@ -68,7 +68,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   // Narrated Studio State
   const [topic, setTopic] = useState(initialTopic);
   const [audience, setAudience] = useState('General audience & learners');
-  const [duration, setDuration] = useState('60');
+  const [duration, setDuration] = useState('120');
   const [style, setStyle] = useState('Educational and engaging');
   const [voiceName, setVoiceName] = useState('Puck');
   const [voiceVolume, setVoiceVolume] = useState(1);
