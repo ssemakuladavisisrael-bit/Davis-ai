@@ -138,6 +138,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     if (initialConfig.veoAspectRatio) setVeoAspectRatio(initialConfig.veoAspectRatio);
 
     setPlan(null);
+    setVoiceoverReady(false);
     setVideoUrl(null);
     setError('');
     setVeoVideoUrl(null);
