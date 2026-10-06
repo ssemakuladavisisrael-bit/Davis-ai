@@ -755,7 +755,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       const scene = plan.scenes[i];
       const audioBuffer = audioBuffers[i];
       
-      const sceneDurationSec = audioBuffer ? Math.max(audioBuffer.duration + 0.5, 3.5) : scene.seconds;
+      const sceneDurationSec = scene.seconds;
       setRenderStatusText(`Recording Scene ${i + 1} / ${totalScenes}: "${scene.title}"...`);
 
       if (audioBuffer && audioCtx && audioDest) {
