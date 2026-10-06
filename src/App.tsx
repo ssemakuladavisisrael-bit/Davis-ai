@@ -1,3 +1,4 @@
+import { apiUrl, getApiBase } from './lib/api';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Menu, 
@@ -101,7 +102,7 @@ export default function App() {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const res = await fetch('/api/health');
+        const res = await fetch(apiUrl('/api/health'));
         if (res.ok) {
           const data = await res.json();
           setServerStatus(data);
@@ -269,7 +270,7 @@ Guidelines:
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await fetch('/api/research', {
+      const response = await fetch(apiUrl('/api/research', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: textToResearch.trim() }),
         signal: abortControllerRef.current.signal,
@@ -379,7 +380,7 @@ Guidelines:
     }));
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(apiUrl('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -542,7 +543,7 @@ Guidelines:
     setIsStreaming(true);
 
     try {
-      const response = await fetch('/api/video/analyze', {
+      const response = await fetch(apiUrl('/api/video/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'video/mp4',
