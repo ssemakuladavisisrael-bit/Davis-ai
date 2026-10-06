@@ -848,6 +848,54 @@ app.post('/api/video/realistic', async (req, res) => {
   }
 });
 
+// Native Gemini image generation (Nano Banana 2)
+app.post('/api/image/generate', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { prompt, aspectRatio, imageSize } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') {
+    res.status(400).json({ error: 'Prompt is required for image generation.' });
+    return;
+  }
+
+  const allowedRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9'];
+  const allowedSizes = ['1K', '2K', '4K'];
+  const ratio = allowedRatios.includes(aspectRatio) ? aspectRatio : '1:1';
+  const size = allowedSizes.includes(imageSize) ? imageSize : '1K';
+
+  try {
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+    const interaction = await ai.interactions.create({
+      model: 'gemini-3.1-flash-image',
+      input: prompt.trim(),
+      response_format: {
+        type: 'image',
+        mime_type: 'image/png',
+        aspect_ratio: ratio,
+        image_size: size,
+      },
+    });
+
+    const image = interaction.output_image;
+    if (!image?.data) {
+      throw new Error('The image model returned no image.');
+    }
+
+    res.json({ image: image.data, mimeType: image.mime_type || 'image/png' });
+  } catch (err: any) {
+    console.error('Image generation error:', err);
+    res.status(500).json({
+      error: err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')
+        ? 'Image generation quota is unavailable for this API key. Please check your Gemini API billing/quota.'
+        : err?.message || 'Failed to generate image.',
+    });
+  }
+});
+
 // Setup Vite middlewares in development or static serving in production
 async function startServer() {
   const isDev = process.env.NODE_ENV !== 'production';
