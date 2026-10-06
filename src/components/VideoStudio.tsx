@@ -999,13 +999,22 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
     const combinedStream = new MediaStream(combinedTracks);
 
-    // Always record WebM first. Direct browser MP4 recording is inconsistent across Android browsers.
+    // Prefer direct MP4 recording first. Fall back only when this browser does not support MP4.
     const candidates = [
+      'video/mp4;codecs=avc1.424028,mp4a.40.2',
+      'video/mp4',
+      'video/mp4;codecs=avc1.64003E,mp4a.40.2',
       'video/webm;codecs=vp8,opus',
       'video/webm;codecs=vp9,opus',
       'video/webm'
     ];
-    const mime = candidates.find((c) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) || 'video/webm';
+    const supportedCandidates = candidates.filter((c) =>
+      typeof MediaRecorder !== 'undefined' &&
+      typeof MediaRecorder.isTypeSupported === 'function' &&
+      MediaRecorder.isTypeSupported(c)
+    );
+    const mime = supportedCandidates[0] || 'video/mp4';
+    const isDirectMp4 = mime.startsWith('video/mp4');
 
     const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
     const chunks: Blob[] = [];
