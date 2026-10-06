@@ -893,7 +893,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     });
   };
 
-  // Full Video File Exporter: stable WebM first, then validated H.264/AAC MP4.
+  // Full Video File Exporter: WebM export.
   const handleRenderVideo = async () => {
     if (!plan || !canvasRef.current || isRendering) return;
     const canvas = canvasRef.current;
@@ -1013,8 +1013,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       typeof MediaRecorder.isTypeSupported === 'function' &&
       MediaRecorder.isTypeSupported(c)
     );
-    const mime = supportedCandidates[0] || 'video/mp4';
-    const isDirectMp4 = mime.startsWith('video/mp4');
+    const mime = supportedCandidates[0] || 'video/webm';
+    const isDirectMp4 = false;
 
     const recorder = new MediaRecorder(combinedStream, { mimeType: mime });
     const chunks: Blob[] = [];
@@ -1507,7 +1507,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   </div>
                   <h3 className="font-bold text-slate-900 text-lg">Start by Generating a Storyboard</h3>
                   <p className="max-w-md text-xs text-slate-500 leading-relaxed">
-                    Davis AI will write your title, hook, scenes, visual directions, and spoken narration. You can play it immediately with live speech or export an HD video file!
+                    Davis AI will write your title, hook, scenes, visual directions, and spoken narration. You can play it immediately with live speech or export a WebM video file!
                   </p>
                 </div>
               ) : (
@@ -1627,7 +1627,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
                           <Tv className="h-4 w-4 text-emerald-400" />
-                          <span>{voiceoverReady ? 'Export Video File (HD 16:9 MP4)' : 'Generate Voiceover First'}</span>
+                          <span>{voiceoverReady ? 'Export Video File (WebM 16:9)' : 'Generate Voiceover First'}</span>
                         </button>
                       ) : (
                         <button
@@ -1680,7 +1680,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                           Exported Video Ready for Playback & Download
                         </span>
                         <span className="text-[11px] text-slate-500 font-normal">
-                          HD 16:9 with Voiceover Audio
+                          WebM 16:9 with Voiceover Audio
                         </span>
                       </div>
 
