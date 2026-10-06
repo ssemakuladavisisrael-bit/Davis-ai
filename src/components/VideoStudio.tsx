@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { VideoPlayer } from './VideoPlayer';
 import { VideoStudioConfig } from '../types';
+import { apiUrl } from '../lib/api';
 
 export type Scene = {
   title: string;
@@ -212,7 +213,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsPreviewingVoice(true);
     try {
       const sampleText = `Hello! I am ${voiceToTest}, your narrator for this video.`;
-      const res = await fetch('/api/video/tts', {
+      const res = await fetch(apiUrl('/api/video/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: sampleText, voiceName: voiceToTest }),
@@ -252,7 +253,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     stopLivePlayRef.current = true;
 
     try {
-      const response = await fetch('/api/video/plan', {
+      const response = await fetch(apiUrl('/api/video/plan'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -283,7 +284,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   // Pre-generate Voiceover for scenes via Gemini TTS / resilient speech
   const fetchSceneAudio = async (text: string, voice: string): Promise<{ buffer: ArrayBuffer; base64: string; mimeType: string } | null> => {
     try {
-      const res = await fetch('/api/video/tts', {
+      const res = await fetch(apiUrl('/api/video/tts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voiceName: voice }),
@@ -1161,7 +1162,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setVeoVideoUrl(null);
 
     try {
-      const res = await fetch('/api/video/veo', {
+      const res = await fetch(apiUrl('/api/video/veo'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1190,7 +1191,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     const check = async () => {
       attempts++;
       try {
-        const res = await fetch('/api/video/veo/status', {
+        const res = await fetch(apiUrl('/api/video/veo/status'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ operationName }),
@@ -1226,7 +1227,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const downloadVeoVideo = async (operationName: string) => {
     setVeoStatus('downloading');
     try {
-      const res = await fetch('/api/video/veo/download', {
+      const res = await fetch(apiUrl('/api/video/veo/download'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operationName }),
