@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Send, Square, Sparkles, CornerDownLeft } from 'lucide-react';
+import { Send, Square, Sparkles, CornerDownLeft, Film } from 'lucide-react';
 
 interface ChatInputProps {
   input: string;
@@ -8,6 +8,7 @@ interface ChatInputProps {
   onStop: () => void;
   isStreaming: boolean;
   disabled?: boolean;
+  onAnalyzeMp4?: (file: File, prompt: string) => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -17,8 +18,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onStop,
   isStreaming,
   disabled = false,
+  onAnalyzeMp4,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-resize textarea based on text height
   useEffect(() => {
@@ -84,6 +87,34 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               {mod}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* MP4 video analysis */}
+      {onAnalyzeMp4 && !isStreaming && (
+        <div className="flex items-center justify-end mb-2">
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/mp4,.mp4"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const prompt = input.trim() || 'Analyze this MP4 video and explain the main content, important scenes, key points, and any useful improvements.';
+              onAnalyzeMp4(file, prompt);
+              e.currentTarget.value = '';
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => videoInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors cursor-pointer"
+            title="Upload and analyze an MP4 video"
+          >
+            <Film className="w-3.5 h-3.5" />
+            Analyze MP4
+          </button>
         </div>
       )}
 
