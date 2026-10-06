@@ -279,6 +279,56 @@ app.post('/api/chat/sync', async (req, res) => {
   }
 });
 
+// Real-time web research endpoint with Google Search grounding and source citations.
+app.post('/api/research', async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    return;
+  }
+
+  const { query, context } = req.body || {};
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    res.status(400).json({ error: 'A research question is required.' });
+    return;
+  }
+
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+  const researchInput = context?.trim()
+    ? `Research the user's question using current, reliable web sources. Provide a clear synthesis, distinguish facts from uncertainty, and cite important claims. User question: ${query.trim()}\\nAdditional context: ${context.trim()}`
+    : `Research the user's question using current, reliable web sources. Provide a clear synthesis, distinguish facts from uncertainty, and cite important claims. User question: ${query.trim()}`;
+
+  try {
+    const interaction = await ai.interactions.create({
+      model: 'gemini-3.8-flash',
+      input: researchInput,
+      tools: [{ type: 'google_search' }],
+    });
+
+    let text = interaction.output_text || '';
+    const sources: Array<{ title: string; url: string }> = [];
+
+    for (const step of interaction.steps || []) {
+      if (step.type !== 'model_output') continue;
+      for (const block of step.content || []) {
+        if (block.type !== 'text') continue;
+        if (!text && typeof block.text === 'string') text = block.text;
+        for (const annotation of block.annotations || []) {
+          if (annotation.type === 'url_citation' && annotation.url) {
+            const source = { title: annotation.title || annotation.url, url: annotation.url };
+            if (!sources.some((s) => s.url === source.url)) sources.push(source);
+          }
+        }
+      }
+    }
+
+    res.json({ text, sources: sources.slice(0, 12), model: 'gemini-3.8-flash', grounded: true });
+  } catch (error: any) {
+    console.error('Research error:', error);
+    res.status(500).json({ error: formatGeminiError(error) });
+  }
+});
+
 // AI video planning endpoint. It creates a structured storyboard; the browser renderer turns it into a video.
 function buildECDCourseworkPlan() {
   return {
