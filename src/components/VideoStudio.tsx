@@ -623,7 +623,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       const scene = plan.scenes[i];
 
       // Fetch speech audio if available
-      const audioData = await fetchSceneAudio(scene.narration, voiceName);
+      const audioData = await fetchSceneAudio(scene.narration, voiceName, scene.audioBase64);
       let audioDuration = scene.seconds;
       let decoded: AudioBuffer | null = null;
 
@@ -661,7 +661,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         seconds: 4,
       };
 
-      const closingAudioData = await fetchSceneAudio(plan.closing, voiceName);
+      const closingAudioData = await fetchSceneAudio(plan.closing, voiceName, plan.closingAudioBase64);
       if (closingAudioData && audioCtx && !stopLivePlayRef.current) {
         try {
           const decoded = await audioCtx.decodeAudioData(closingAudioData);
@@ -732,7 +732,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       if (stopRenderingRef.current) break;
       setRenderStatusText(`Synthesizing voiceover: Scene ${s + 1} of ${plan.scenes.length}...`);
       const scene = plan.scenes[s];
-      const audioData = await fetchSceneAudio(scene.narration, voiceName);
+      const audioData = await fetchSceneAudio(scene.narration, voiceName, scene.audioBase64);
       
       if (audioData && audioCtx) {
         try {
@@ -747,7 +747,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       setRenderProgress(Math.round(((s + 1) / (plan.scenes.length + 1)) * 30));
     }
 
-    const closingAudioData = await fetchSceneAudio(plan.closing, voiceName);
+    const closingAudioData = await fetchSceneAudio(plan.closing, voiceName, plan.closingAudioBase64);
     let closingBuffer: AudioBuffer | null = null;
     if (closingAudioData && audioCtx) {
       try {
