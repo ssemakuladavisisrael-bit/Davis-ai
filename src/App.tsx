@@ -24,6 +24,7 @@ import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
 import { VideoStudio } from './components/VideoStudio';
 import { PromptImportModal } from './components/PromptImportModal';
+import { ImageStudio } from './components/ImageStudio';
 import type { ImportedVideoConfig } from './components/PromptImportModal';
 
 const STORAGE_KEY_CONVOS = 'davis_ai_conversations';
@@ -73,6 +74,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isVideoStudioOpen, setIsVideoStudioOpen] = useState(false);
   const [isPromptImportOpen, setIsPromptImportOpen] = useState(false);
+  const [isImageStudioOpen, setIsImageStudioOpen] = useState(false);
   const [videoStudioTopic, setVideoStudioTopic] = useState('');
   const [videoStudioConfig, setVideoStudioConfig] = useState<ImportedVideoConfig | undefined>(undefined);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
@@ -617,6 +619,7 @@ Guidelines:
         onClose={() => setIsSidebarOpen(false)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHelp={() => setIsHelpOpen(true)}
+        onOpenImageStudio={() => setIsImageStudioOpen(true)}
         serverStatus={serverStatus}
         model={model}
       />
@@ -744,6 +747,7 @@ Guidelines:
               onSelectPrompt={handleSendMessage}
               hasApiKey={Boolean(serverStatus?.hasApiKey)}
               onOpenHelp={() => setIsHelpOpen(true)}
+              onOpenImageStudio={() => setIsImageStudioOpen(true)}
               onOpenVideoStudio={(top) => {
                 setVideoStudioTopic(top || '');
                 setIsVideoStudioOpen(true);
@@ -848,6 +852,8 @@ Guidelines:
         onCustomInstructionChange={setCustomInstruction}
         onClearAllConversations={handleClearAllConversations}
       />
-    </div>
+    
+      <ImageStudio isOpen={isImageStudioOpen} onClose={() => setIsImageStudioOpen(false)} />
+</div>
   );
 }
