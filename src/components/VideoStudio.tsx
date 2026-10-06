@@ -76,6 +76,8 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   const [voiceName, setVoiceName] = useState('Puck');
   const [plan, setPlan] = useState<VideoPlan | null>(null);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
+  const [voiceoverReady, setVoiceoverReady] = useState(false);
   
   // Interactive Live Player State
   const [currentPreviewScene, setCurrentPreviewScene] = useState(0);
@@ -194,6 +196,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         throw new Error(data.error || 'Failed to generate storyboard plan.');
       }
       setPlan(data);
+      setVoiceoverReady(false);
       setCurrentPreviewScene(0);
     } catch (err: any) {
       setError(err?.message || 'Could not generate the video storyboard.');
@@ -222,6 +225,37 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
       return bytes.buffer;
     } catch {
       return null;
+    }
+  };
+
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
+    return btoa(binary);
+  };
+
+  const handleGenerateVoiceover = async () => {
+    if (!plan || isGeneratingVoice) return;
+    setIsGeneratingVoice(true);
+    setError('');
+    try {
+      const updatedScenes: Scene[] = [];
+      for (const scene of plan.scenes) {
+        const audioData = await fetchSceneAudio(scene.narration, voiceName);
+        if (!audioData) throw new Error('Voiceover generation failed. Check the server Gemini API key and try again.');
+        updatedScenes.push({ ...scene, audioBase64: arrayBufferToBase64(audioData) });
+      }
+      const closingAudio = await fetchSceneAudio(plan.closing, voiceName);
+      if (!closingAudio) throw new Error('Closing voiceover generation failed. Check the server Gemini API key and try again.');
+      setPlan({ ...plan, scenes: updatedScenes });
+      setVoiceoverReady(true);
+    } catch (err: any) {
+      setVoiceoverReady(false);
+      setError(err?.message || 'Could not generate the voiceover.');
+    } finally {
+      setIsGeneratingVoice(false);
     }
   };
 
@@ -1206,17 +1240,31 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                     </div>
                   </div>
 
+                  {/* Voiceover Generation */}
+                  <div className="rounded-2xl bg-indigo-50 border border-indigo-200 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-bold text-indigo-900 flex items-center gap-1.5"><Volume2 className="h-4 w-4" /> Voiceover</div>
+                        <p className="text-[11px] text-indigo-700 mt-0.5">{voiceoverReady ? "Ready — " + voiceName + " narration is attached to the video." : "Generate the spoken narration before exporting."}</p>
+                      </div>
+                      <button onClick={handleGenerateVoiceover} disabled={isGeneratingVoice || isRendering || isPlayingLive} className="shrink-0 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-xs font-bold flex items-center gap-2 disabled:opacity-50 cursor-pointer">
+                        {isGeneratingVoice ? <Loader2 className="h-4 w-4 animate-spin" /> : voiceoverReady ? <CheckCircle2 className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                        <span>{isGeneratingVoice ? "Generating Voice…" : voiceoverReady ? "Regenerate Voice" : "Generate Voiceover"}</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Render & Export Actions */}
                   <div className="rounded-2xl bg-white border border-slate-200 p-4 shadow-sm space-y-3">
                     <div className="flex flex-col sm:flex-row items-center gap-3">
                       {!isRendering ? (
                         <button
                           onClick={handleRenderVideo}
-                          disabled={isPlayingLive}
+                          disabled={isPlayingLive || !voiceoverReady}
                           className="w-full sm:flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                         >
                           <Tv className="h-4 w-4 text-emerald-400" />
-                          <span>Export Video File (HD 16:9 WebM/MP4)</span>
+                          <span>Export Video File (HD 16:9 WebM)</span>
                         </button>
                       ) : (
                         <button
