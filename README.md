@@ -97,3 +97,19 @@ Davis AI uses a secure server-side architecture so your Google Gemini API key is
 ## 🛡️ Security & Privacy
 - **Server-Side Proxy**: All Gemini calls run through `server.ts`. No API keys or authorization headers are accessible to client-side JavaScript.
 - **Local Storage**: Conversation sessions are stored in your browser's `localStorage` for privacy and persistence.
+
+
+## 🎬 Video Studio
+
+Davis AI now includes a built-in **Video Studio**.
+
+- Open **Create Video** from the chat header.
+- Enter a topic, audience, duration and style.
+- Gemini creates a structured storyboard with a hook, scenes, narration and visual directions.
+- Render the storyboard directly in the browser as a 16:9 WebM video.
+- Preview the result and download it from the app.
+- Gemini remains server-side; the browser never receives `GEMINI_API_KEY`.
+
+### Video architecture
+
+The current version intentionally uses a browser renderer so it can create a working video without exposing API secrets. The next upgrade can connect the storyboard scenes to an image/video generation provider and add generated voice-over, subtitles and richer transitions.
