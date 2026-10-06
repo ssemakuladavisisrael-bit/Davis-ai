@@ -254,11 +254,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     try {
       const updatedScenes: Scene[] = [];
       for (const scene of plan.scenes) {
-        const audioData = await fetchSceneAudio(scene.narration, voiceName, scene.audioBase64);
+        const audioData = await fetchSceneAudio(scene.narration, voiceName);
         if (!audioData) throw new Error('Voiceover generation failed. Check the server Gemini API key and try again.');
         updatedScenes.push({ ...scene, audioBase64: arrayBufferToBase64(audioData) });
       }
-      const closingAudio = await fetchSceneAudio(plan.closing, voiceName, plan.closingAudioBase64);
+      const closingAudio = await fetchSceneAudio(plan.closing, voiceName);
       if (!closingAudio) throw new Error('Closing voiceover generation failed. Check the server Gemini API key and try again.');
       setPlan({ ...plan, scenes: updatedScenes, closingAudioBase64: arrayBufferToBase64(closingAudio) });
       setVoiceoverReady(true);
