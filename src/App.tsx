@@ -718,6 +718,7 @@ Guidelines:
             onStop={handleStopStreaming}
             isStreaming={isStreaming}
             disabled={false}
+            onAnalyzeMp4={handleAnalyzeMp4}
           />
         </div>
       </main>
