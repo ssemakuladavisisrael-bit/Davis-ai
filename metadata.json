@@ -1,0 +1,6 @@
+{
+  "name": "Davis AI",
+  "description": "A polished, responsive conversational AI assistant powered by Google Gemini, designed for learning, coding, writing, and everyday problem-solving.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
