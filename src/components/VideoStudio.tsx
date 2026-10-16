@@ -66,7 +66,7 @@ const VOICE_OPTIONS = [
 ];
 
 export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
-  const [activeTab, setActiveTab] = useState<'narrated' | 'veo' | 'editor'>('narrated');
+  const [activeTab, setActiveTab] = useState<'narrated' | 'veo' | 'editor' | 'wan'>('narrated');
   
   // Narrated Studio State
   const [topic, setTopic] = useState(initialTopic);
@@ -1248,6 +1248,18 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab('wan')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'wan'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Video className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Wan AI</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('veo')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'veo'
@@ -1701,6 +1713,58 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               )}
             </section>
           </div>
+          </div>
+        )}
+
+        {/* TAB: WAN AI HOSTED REALISTIC VIDEO GENERATOR */}
+        {activeTab === 'wan' && (
+          <div className="p-4 sm:p-6 space-y-4 w-full">
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-cyan-950 rounded-2xl p-5 sm:p-6 text-white space-y-2 shadow-lg">
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-base">Wan AI — Realistic Video Generator</h3>
+              </div>
+              <p className="text-xs text-slate-200 leading-relaxed max-w-3xl">
+                Try hosted text-to-video or image-to-video generation without using your laptop's GPU. This uses Wan AI's public service, so queue times, availability, and usage limits are controlled by that provider.
+              </p>
+              <a
+                href="https://wan-ai-wan2-1.hf.space/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2.5 text-xs font-bold transition-colors"
+              >
+                <Video className="w-4 h-4" />
+                Open Wan AI in a new tab
+              </a>
+            </div>
+            <div className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-50">
+              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Wan AI workspace</h4>
+                  <p className="text-[11px] text-slate-500">If the embedded service is blocked by the provider, use the button above.</p>
+                </div>
+                <a
+                  href="https://wan-ai-wan2-1.hf.space/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 whitespace-nowrap"
+                >
+                  Open separately ↗
+                </a>
+              </div>
+              <iframe
+                src="https://wan-ai-wan2-1.hf.space/"
+                title="Wan AI realistic video generator"
+                className="w-full bg-white"
+                style={{ height: '68vh', minHeight: '480px', border: 0 }}
+                loading="lazy"
+                allow="clipboard-read; clipboard-write"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Note: generation and downloads are handled by the hosted Wan AI service. This first integration does not yet transfer finished videos automatically into Davis AI's own editor.
+            </p>
           </div>
         )}
 
