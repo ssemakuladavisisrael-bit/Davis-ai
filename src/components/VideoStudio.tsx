@@ -1169,7 +1169,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: `${
-            presenterStyle === 'No presenter — cinematic scenes only'
+            presenterStyle === 'Realistic live-action scene (people/action; no presenter)'
               ? 'Create a photorealistic live-action video. Do not use cartoons, animation, illustrations, or 3D characters. '
               : `Create a photorealistic live-action video featuring ${presenterStyle} speaking naturally and directly to the camera. The person must look like a real human, not a cartoon, animation, illustration, or 3D character. Include realistic skin texture, natural blinking, expressive but subtle facial movements, gentle hand gestures, steady eye contact, clear spoken dialogue, and accurate lip synchronization. `
           }${veoPrompt.trim()}`,
@@ -1794,9 +1794,9 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   <option value="a realistic African man presenter">African man presenter</option>
                   <option value="a realistic woman presenter">Woman presenter</option>
                   <option value="a realistic man presenter">Man presenter</option>
-                  <option value="No presenter — cinematic scenes only">Cinematic scenes without a presenter</option>
+                  <option value="Realistic live-action scene (people/action; no presenter)">Cinematic scenes without a presenter</option>
                 </select>
-                <p className="text-[11px] text-slate-500 mt-1.5">Human presenters are the default. Davis AI will request realistic live-action footage with natural speech and lip-sync; results depend on the video model.</p>
+                <p className="text-[11px] text-slate-500 mt-1.5">Choose a human presenter for someone speaking to camera, or choose Realistic live-action scene for football, people interacting, travel, and other action. Davis AI requests live-action footage—not cartoons, animation, illustrations, or 3D characters; results depend on the video model.</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
@@ -1805,7 +1805,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 <textarea
                   value={veoPrompt}
                   onChange={(e) => setVeoPrompt(e.target.value)}
-                  placeholder="e.g. A neon hologram of a robot driving a sports car through a rainy cyberpunk street at top speed, photorealistic, 4k..."
+                  placeholder="e.g. A real boy playing football with friends on a grassy pitch, natural human movement, live-action sports footage..."
                   rows={3}
                   className="w-full rounded-xl border border-slate-200 p-3 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
