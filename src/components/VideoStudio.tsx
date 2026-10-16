@@ -27,6 +27,7 @@ import {
   Sliders
 } from 'lucide-react';
 import { VideoPlayer } from './VideoPlayer';
+import { VideoEditorTimeline } from './VideoEditorTimeline';
 import { VideoStudioConfig } from '../types';
 import { apiUrl } from '../lib/api';
 
@@ -65,7 +66,7 @@ const VOICE_OPTIONS = [
 ];
 
 export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
-  const [activeTab, setActiveTab] = useState<'narrated' | 'veo'>('narrated');
+  const [activeTab, setActiveTab] = useState<'narrated' | 'veo' | 'editor'>('narrated');
   
   // Narrated Studio State
   const [topic, setTopic] = useState(initialTopic);
@@ -101,6 +102,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
   // Veo State
   const [veoPrompt, setVeoPrompt] = useState('');
+  const [presenterStyle, setPresenterStyle] = useState('A realistic human presenter');
   const [veoResolution, setVeoResolution] = useState<'720p' | '1080p'>('720p');
   const [veoAspectRatio, setVeoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [veoStatus, setVeoStatus] = useState<'idle' | 'starting' | 'polling' | 'downloading' | 'completed' | 'error'>('idle');
@@ -1166,7 +1168,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: veoPrompt.trim(),
+          prompt: `${
+            presenterStyle === 'Realistic live-action scene (people/action; no presenter)'
+              ? 'Create a photorealistic live-action video. Do not use cartoons, animation, illustrations, or 3D characters. '
+              : `Create a photorealistic live-action video featuring ${presenterStyle} speaking naturally and directly to the camera. The person must look like a real human, not a cartoon, animation, illustration, or 3D character. Include realistic skin texture, natural blinking, expressive but subtle facial movements, gentle hand gestures, steady eye contact, clear spoken dialogue, and accurate lip synchronization. `
+          }${veoPrompt.trim()}`,
           resolution: veoResolution,
           aspectRatio: veoAspectRatio,
         }),
@@ -1292,6 +1298,18 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab('editor')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'editor'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Film className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Video Editor</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('veo')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'veo'
@@ -1312,6 +1330,15 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
             </button>
           </div>
         </div>
+
+        {activeTab === 'editor' && (
+          <VideoEditorTimeline
+            initialVideos={[
+              ...(videoUrl ? [{ url: videoUrl, name: 'Narrated Producer export' }] : []),
+              ...(veoVideoUrl ? [{ url: veoVideoUrl, name: 'Google Veo generated video' }] : []),
+            ]}
+          />
+        )}
 
         {/* TAB 1: NARRATED VIDEO PRODUCER */}
         {activeTab === 'narrated' && (
@@ -1754,13 +1781,31 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
               <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Human Presenter
+                </label>
+                <select
+                  value={presenterStyle}
+                  onChange={(e) => setPresenterStyle(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-800"
+                >
+                  <option value="A realistic human presenter">Let Davis AI choose a realistic human</option>
+                  <option value="a realistic African woman presenter">African woman presenter</option>
+                  <option value="a realistic African man presenter">African man presenter</option>
+                  <option value="a realistic woman presenter">Woman presenter</option>
+                  <option value="a realistic man presenter">Man presenter</option>
+                  <option value="Realistic live-action scene (people/action; no presenter)">Cinematic scenes without a presenter</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1.5">Choose a human presenter for someone speaking to camera, or choose Realistic live-action scene for football, people interacting, travel, and other action. Davis AI requests live-action footage—not cartoons, animation, illustrations, or 3D characters; results depend on the video model.</p>
+              </div>
+              <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Cinematic Video Prompt
+                  Video Topic or Scene Prompt
                 </label>
                 <textarea
                   value={veoPrompt}
                   onChange={(e) => setVeoPrompt(e.target.value)}
-                  placeholder="e.g. A neon hologram of a robot driving a sports car through a rainy cyberpunk street at top speed, photorealistic, 4k..."
+                  placeholder="e.g. A real boy playing football with friends on a grassy pitch, natural human movement, live-action sports footage..."
                   rows={3}
                   className="w-full rounded-xl border border-slate-200 p-3 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
@@ -1830,7 +1875,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   </div>
                   <p>{veoError}</p>
                   <p className="text-[11px] text-indigo-700 font-semibold pt-1">
-                    Tip: Switch to the <strong>Narrated Producer</strong> tab to generate and play your video with full voiceover immediately!
+                    Tip: Try <strong>Narrated Producer</strong> for a scene-based video with voiceover. It uses a different workflow, but may have its own provider limits.
                   </p>
                 </div>
               )}
