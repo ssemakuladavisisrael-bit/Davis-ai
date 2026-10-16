@@ -1727,15 +1727,27 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               <p className="text-xs text-slate-200 leading-relaxed max-w-3xl">
                 Try hosted text-to-video or image-to-video generation without using your laptop's GPU. This uses Wan AI's public service, so queue times, availability, and usage limits are controlled by that provider.
               </p>
-              <a
-                href="https://wan-ai-wan2-1.hf.space/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2.5 text-xs font-bold transition-colors"
-              >
-                <Video className="w-4 h-4" />
-                Open Wan AI in a new tab
-              </a>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <a
+                  href="https://wan.video/wanxiang/creation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2.5 text-xs font-bold transition-colors"
+                >
+                  <Video className="w-4 h-4" />
+                  Try Official Wan Video Studio
+                </a>
+                <a
+                  href="https://wan-ai-wan2-1.hf.space/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/30 hover:bg-white/10 text-white px-4 py-2.5 text-xs font-bold transition-colors"
+                >
+                  <Video className="w-4 h-4" />
+                  Open Public Wan Demo
+                </a>
+              </div>
+              <p className="text-[11px] text-amber-200">If the public demo shows the task_id warning, use the official Wan link above; that warning comes from the demo's generation service, not Davis AI.</p>
             </div>
             <div className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-50">
               <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
