@@ -475,16 +475,48 @@ function buildECDCourseworkPlan() {
 }
 
 
+function buildLocalVideoPlan(topic: string, audience: string, duration: number, style: string) {
+  const requestedDuration = Math.min(180, Math.max(30, Number(duration) || 60));
+  const sceneCount = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
+  const closingSeconds = requestedDuration <= 60 ? 5 : requestedDuration <= 90 ? 6 : 8;
+  const sceneSecondsTotal = requestedDuration - closingSeconds;
+  const evenSeconds = Math.floor(sceneSecondsTotal / sceneCount);
+  let remainder = sceneSecondsTotal - evenSeconds * sceneCount;
+  const phases = [
+    { title: 'The Big Idea', narration: 'Let us begin with the key idea behind ' + topic + '. Understanding the basics gives us a strong foundation for what comes next.', visual: 'An engaging title card about ' + topic + ', with bold readable words and simple animated icons.' },
+    { title: 'Understand the Basics', narration: 'First, focus on the most important facts about ' + topic + '. Break the subject into simple parts and connect each part to everyday experience.', visual: 'Three clear animated information cards explaining the basic parts of ' + topic + '.' },
+    { title: 'See It in Action', narration: 'Now imagine how ' + topic + ' works in a real situation. Watch how the main idea connects to practical examples and useful decisions.', visual: 'A simple animated real-world example of ' + topic + ', using moving shapes, arrows and labels.' },
+    { title: 'Common Mistakes', narration: 'A common mistake is to rush without checking the details. Take your time, ask questions, and make sure the information is accurate and relevant.', visual: 'A before-and-after animated comparison showing a mistake being corrected.' },
+    { title: 'Put It into Practice', narration: 'You can apply what you have learned about ' + topic + ' by taking one small step, reviewing the result, and improving from there.', visual: 'A short three-step animated checklist for applying ' + topic + ' in practice.' },
+    { title: 'Remember the Key Points', narration: 'Remember the main lesson: understand the basics, use practical examples, and review your work carefully. These habits make learning more effective.', visual: 'Key takeaways appear one by one as clean animated text and icons.' },
+    { title: 'Build Your Confidence', narration: 'Keep practising and learning from feedback. Progress comes from consistent effort, thoughtful questions, and checking what works.', visual: 'An animated progress path with milestones and a rising progress indicator.' },
+    { title: 'Take the Next Step', narration: 'Choose one useful action you can take today. Start small, stay curious, and keep building your understanding of ' + topic + '.', visual: 'A final action card with a clear next step and a positive closing animation.' }
+  ];
+  const scenes = phases.slice(0, sceneCount).map((scene, index) => {
+    const seconds = evenSeconds + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    return { ...scene, seconds };
+  });
+  return {
+    title: topic.trim().slice(0, 90) || 'Davis AI Video',
+    hook: 'Discover the essentials of ' + topic + ' in this short, practical video.',
+    scenes,
+    closing: 'Thanks for watching. Keep learning, keep practising, and put these ideas into action.',
+    closingSeconds,
+    generatedLocally: true
+  };
+}
+
 app.post('/api/video/plan', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
-    return;
-  }
-
   const { topic, audience, duration, style } = req.body || {};
   if (!topic || typeof topic !== 'string') {
     res.status(400).json({ error: 'A video topic is required.' });
+    return;
+  }
+
+  if (!apiKey || apiKey.trim() === '') {
+    res.json(buildLocalVideoPlan(topic, audience || 'general audience', Number(duration) || 60, style || 'Educational and engaging'));
     return;
   }
 
@@ -579,8 +611,8 @@ Use exactly ${sceneCount} scenes. Their seconds values should add up to exactly 
     plan.closingSeconds = closingSeconds;
     res.json(plan);
   } catch (error: any) {
-    console.error('Video planning error:', error);
-    res.status(500).json({ error: formatGeminiError(error) });
+    console.error('Video planning provider unavailable; using local storyboard fallback:', error);
+    res.json(buildLocalVideoPlan(topic, audience || 'general audience', requestedDuration, style || 'Educational and engaging'));
   }
 });
 
