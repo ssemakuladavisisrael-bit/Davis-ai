@@ -27,6 +27,7 @@ import {
   Sliders
 } from 'lucide-react';
 import { VideoPlayer } from './VideoPlayer';
+import { VideoEditorTimeline } from './VideoEditorTimeline';
 import { VideoStudioConfig } from '../types';
 import { apiUrl } from '../lib/api';
 
@@ -65,7 +66,7 @@ const VOICE_OPTIONS = [
 ];
 
 export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig }: VideoStudioProps) {
-  const [activeTab, setActiveTab] = useState<'narrated' | 'veo'>('narrated');
+  const [activeTab, setActiveTab] = useState<'narrated' | 'veo' | 'editor'>('narrated');
   
   // Narrated Studio State
   const [topic, setTopic] = useState(initialTopic);
@@ -1297,6 +1298,18 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
               </button>
               <button
                 type="button"
+                onClick={() => setActiveTab('editor')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'editor'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Film className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Video Editor</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('veo')}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   activeTab === 'veo'
@@ -1317,6 +1330,15 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
             </button>
           </div>
         </div>
+
+        {activeTab === 'editor' && (
+          <VideoEditorTimeline
+            initialVideos={[
+              ...(videoUrl ? [{ url: videoUrl, name: 'Narrated Producer export' }] : []),
+              ...(veoVideoUrl ? [{ url: veoVideoUrl, name: 'Google Veo generated video' }] : []),
+            ]}
+          />
+        )}
 
         {/* TAB 1: NARRATED VIDEO PRODUCER */}
         {activeTab === 'narrated' && (
