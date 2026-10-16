@@ -103,7 +103,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   // Veo State
   const [veoPrompt, setVeoPrompt] = useState('');
   const [presenterStyle, setPresenterStyle] = useState('A realistic human presenter');
-  const [veoResolution, setVeoResolution] = useState<'720p' | '1080p'>('720p');
+  const [veoResolution, setVeoResolution] = useState<'720p' | '540p'>('720p');
   const [veoAspectRatio, setVeoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [veoStatus, setVeoStatus] = useState<'idle' | 'starting' | 'polling' | 'downloading' | 'completed' | 'error'>('idle');
   const [veoOperationName, setVeoOperationName] = useState<string | null>(null);
@@ -1156,99 +1156,37 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
     setIsRendering(false);
   };
 
-  // Google Veo Video Generation Handlers
+  // PixVerse Video Generation: this tab uses PixVerse directly, never Gemini/Veo.
   const handleStartVeo = async () => {
     if (!veoPrompt.trim() || veoStatus === 'starting' || veoStatus === 'polling') return;
     setVeoStatus('starting');
     setVeoError('');
     setVeoVideoUrl(null);
 
+    const prompt = (presenterStyle === 'Realistic live-action scene (people/action; no presenter)'
+      ? 'Create photorealistic live-action footage. No cartoons, animation, illustrations, or 3D characters. '
+      : 'Show ' + presenterStyle + ' in photorealistic live-action footage, speaking naturally to camera with realistic skin texture, natural blinking, subtle facial movement, and gentle hand gestures. No cartoon or 3D style. ') + veoPrompt.trim();
+
     try {
-      const res = await fetch(apiUrl('/api/video/veo'), {
+      const res = await fetch(apiUrl('/api/video/pixverse'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `${
-            presenterStyle === 'Realistic live-action scene (people/action; no presenter)'
-              ? 'Create a photorealistic live-action video. Do not use cartoons, animation, illustrations, or 3D characters. '
-              : `Create a photorealistic live-action video featuring ${presenterStyle} speaking naturally and directly to the camera. The person must look like a real human, not a cartoon, animation, illustration, or 3D character. Include realistic skin texture, natural blinking, expressive but subtle facial movements, gentle hand gestures, steady eye contact, clear spoken dialogue, and accurate lip synchronization. `
-          }${veoPrompt.trim()}`,
-          resolution: veoResolution,
-          aspectRatio: veoAspectRatio,
-        }),
+        body: JSON.stringify({ prompt, aspectRatio: veoAspectRatio, resolution: veoResolution, duration: 8 }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to start Veo video generation.');
-
-      setVeoOperationName(data.operationName);
-      setVeoStatus('polling');
-      pollVeoOperation(data.operationName);
-    } catch (err: any) {
-      setVeoStatus('error');
-      setVeoError(err?.message || 'Could not start Google Veo video generation.');
-    }
-  };
-
-  const pollVeoOperation = async (operationName: string) => {
-    let attempts = 0;
-    const maxAttempts = 60;
-
-    const check = async () => {
-      attempts++;
-      try {
-        const res = await fetch(apiUrl('/api/video/veo/status'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ operationName }),
-        });
-
-        const data = await res.json();
-        if (data.done) {
-          if (data.error) {
-            setVeoStatus('error');
-            setVeoError(data.error?.message || 'Veo video generation failed.');
-          } else {
-            downloadVeoVideo(operationName);
-          }
-          return;
-        }
-
-        if (attempts >= maxAttempts) {
-          setVeoStatus('error');
-          setVeoError('Operation timed out. Please try again.');
-          return;
-        }
-
-        setTimeout(check, 5000);
-      } catch (err: any) {
-        setVeoStatus('error');
-        setVeoError(err?.message || 'Failed checking operation status.');
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || contentType.includes('application/json')) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'PixVerse video generation failed (HTTP ' + res.status + ').');
       }
-    };
-
-    setTimeout(check, 3000);
-  };
-
-  const downloadVeoVideo = async (operationName: string) => {
-    setVeoStatus('downloading');
-    try {
-      const res = await fetch(apiUrl('/api/video/veo/download'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operationName }),
-      });
-
-      if (!res.ok) throw new Error('Failed to retrieve completed video.');
       const blob = await res.blob();
+      if (blob.size < 1000) throw new Error('PixVerse returned an empty video file. Please try again.');
       setVeoVideoUrl(URL.createObjectURL(blob));
       setVeoStatus('completed');
     } catch (err: any) {
       setVeoStatus('error');
-      setVeoError(err?.message || 'Failed to download generated Veo video.');
+      setVeoError(err?.message || 'PixVerse video generation failed.');
     }
   };
-
   const sampleTopics = [
     'How Photosynthesis Powers Life on Earth',
     '3 Steps to Master Clean Code & Refactoring',
@@ -1318,7 +1256,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 }`}
               >
                 <Video className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Google Veo AI</span>
+                <span>PixVerse Video</span>
               </button>
             </div>
 
@@ -1832,7 +1770,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-800"
                   >
                     <option value="720p">720p (Faster generation)</option>
-                    <option value="1080p">1080p Full HD</option>
+                    <option value="540p">540p (lower cost option)</option>
                   </select>
                 </div>
               </div>
@@ -1845,12 +1783,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 {veoStatus === 'starting' || veoStatus === 'polling' ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Generating Video with Google Veo...</span>
+                    <span>Generating video with PixVerse...</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Generate Video with Veo</span>
+                    <span>Generate Real Video with PixVerse</span>
                   </>
                 )}
               </button>
@@ -1859,10 +1797,10 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs space-y-1">
                   <div className="font-semibold flex items-center gap-1.5">
                     <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                    Veo model is rendering your video...
+                    PixVerse is generating your video...
                   </div>
                   <p className="text-slate-600">
-                    Video generation typically takes 1 to 3 minutes.
+                    PixVerse is generating a real moving-video clip. Generation time depends on provider load.
                   </p>
                 </div>
               )}
@@ -1871,11 +1809,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">
                   <div className="font-semibold flex items-center gap-1.5">
                     <AlertCircle className="w-4 h-4 text-rose-600" />
-                    Google Veo Notice
+                    PixVerse Notice
                   </div>
                   <p>{veoError}</p>
                   <p className="text-[11px] text-indigo-700 font-semibold pt-1">
-                    Tip: Try <strong>Narrated Producer</strong> for a scene-based video with voiceover. It uses a different workflow, but may have its own provider limits.
+                    Tip: Check your PixVerse API credits and Render environment variable. This tab does not fall back to Gemini.
                   </p>
                 </div>
               )}
@@ -1893,11 +1831,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   </div>
                   <a
                     href={veoVideoUrl}
-                    download="veo-ai-video.mp4"
+                    download="davis-ai-pixverse-video.mp4"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    Download Veo MP4 Video
+                    Download PixVerse MP4 Video
                   </a>
                 </div>
               )}
