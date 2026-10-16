@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Upload, Play, Pause, Scissors, Trash2, ArrowUp, ArrowDown, Download, Type, Film, Clock3, Plus, AlertCircle } from 'lucide-react';
+import { Upload, Play, Scissors, Trash2, ArrowUp, ArrowDown, Download, Type, Film, Plus, AlertCircle } from 'lucide-react';
 
 type Clip = {
   id: string;
@@ -30,7 +30,6 @@ export function VideoEditorTimeline({ initialVideos = [] }: VideoEditorTimelineP
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
   const stopExportRef = useRef(false);
   const selectedClip = clips.find((clip) => clip.id === selectedId) ?? clips[0] ?? null;
   const totalDuration = clips.reduce((sum, clip) => sum + Math.max(0, clip.end - clip.start), 0);
@@ -209,7 +208,6 @@ export function VideoEditorTimeline({ initialVideos = [] }: VideoEditorTimelineP
       setNotice('This browser cannot create a WebM recording. Try current Chrome or Edge.');
       return;
     }
-    recorderRef.current = recorder;
     recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
     const finished = new Promise<void>((resolve) => {
       recorder.onstop = () => resolve();
@@ -320,7 +318,6 @@ export function VideoEditorTimeline({ initialVideos = [] }: VideoEditorTimelineP
       }
       setIsExporting(false);
       setExportProgress(100);
-      recorderRef.current = null;
     }
   };
 
