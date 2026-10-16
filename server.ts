@@ -17,7 +17,7 @@ const app = express();
 // Credentials and the Gemini API key remain server-side; this only enables browser CORS.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && (/^https?:\\/\\/([a-z0-9-]+\\.)*github\\.io$/i.test(origin) || origin === process.env.FRONTEND_ORIGIN)) {
+  if (origin && (/^https?:\/\/([a-z0-9-]+\.)*github\.io$/i.test(origin) || origin === process.env.FRONTEND_ORIGIN)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
