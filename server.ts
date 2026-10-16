@@ -692,6 +692,20 @@ app.post('/api/video/tts', async (req, res) => {
   res.status(500).json({ error: 'Failed to synthesize narration audio.' });
 });
 
+// Convert Veo quota failures into a clear, actionable API response.
+function sendVeoError(res: any, err: any, fallback: string) {
+  const message = String(err?.message || err || fallback);
+  const isQuotaError = /429|RESOURCE_EXHAUSTED|quota|rate limit|billing/i.test(message);
+  if (isQuotaError) {
+    res.status(429).json({
+      error: 'Google Veo is currently rejecting video generation because this Google project has no available quota or billing/model access is not ready. This is not caused by your prompt. Check https://ai.dev/rate-limit and confirm billing/model access at https://ai.google.dev/gemini-api/docs/rate-limits. Avoid repeated retries until the quota issue is resolved.',
+      code: 'VEO_QUOTA_OR_BILLING_LIMIT',
+    });
+    return;
+  }
+  res.status(500).json({ error: message || fallback });
+}
+
 // Google Veo AI Video generation (Start operation)
 app.post('/api/video/veo', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -725,7 +739,7 @@ app.post('/api/video/veo', async (req, res) => {
     res.json({ operationName: operation.name });
   } catch (err: any) {
     console.error('Veo video generation error:', err);
-    res.status(500).json({ error: err?.message || 'Failed to start Veo video generation.' });
+    sendVeoError(res, err, 'Failed to start Veo video generation.');
   }
 });
 
