@@ -101,6 +101,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
   // Veo State
   const [veoPrompt, setVeoPrompt] = useState('');
+  const [presenterStyle, setPresenterStyle] = useState('A realistic human presenter');
   const [veoResolution, setVeoResolution] = useState<'720p' | '1080p'>('720p');
   const [veoAspectRatio, setVeoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [veoStatus, setVeoStatus] = useState<'idle' | 'starting' | 'polling' | 'downloading' | 'completed' | 'error'>('idle');
@@ -1166,7 +1167,11 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: veoPrompt.trim(),
+          prompt: `${
+            presenterStyle === 'No presenter — cinematic scenes only'
+              ? 'Create a photorealistic live-action video. Do not use cartoons, animation, illustrations, or 3D characters. '
+              : `Create a photorealistic live-action video featuring ${presenterStyle} speaking naturally and directly to the camera. The person must look like a real human, not a cartoon, animation, illustration, or 3D character. Include realistic skin texture, natural blinking, expressive but subtle facial movements, gentle hand gestures, steady eye contact, clear spoken dialogue, and accurate lip synchronization. `
+          }${veoPrompt.trim()}`,
           resolution: veoResolution,
           aspectRatio: veoAspectRatio,
         }),
@@ -1754,8 +1759,26 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
 
             <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
               <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  Human Presenter
+                </label>
+                <select
+                  value={presenterStyle}
+                  onChange={(e) => setPresenterStyle(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-800"
+                >
+                  <option value="A realistic human presenter">Let Davis AI choose a realistic human</option>
+                  <option value="a realistic African woman presenter">African woman presenter</option>
+                  <option value="a realistic African man presenter">African man presenter</option>
+                  <option value="a realistic woman presenter">Woman presenter</option>
+                  <option value="a realistic man presenter">Man presenter</option>
+                  <option value="No presenter — cinematic scenes only">Cinematic scenes without a presenter</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1.5">Human presenters are the default. Davis AI will request realistic live-action footage with natural speech and lip-sync; results depend on the video model.</p>
+              </div>
+              <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Cinematic Video Prompt
+                  Video Topic or Scene Prompt
                 </label>
                 <textarea
                   value={veoPrompt}
