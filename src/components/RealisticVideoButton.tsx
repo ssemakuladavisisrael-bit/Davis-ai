@@ -47,7 +47,7 @@ export function RealisticVideoButton({ prompt }: Props) {
       // Each shot is genuine generated video. We stop with a clear message if the provider quota is unavailable.
       for (let i = 0; i < shots.length; i++) {
         setProgress(`Generating scene ${i + 1} of ${shots.length}: ${shots[i].label.split(' · ')[1]}…`);
-        const response = await fetch(apiUrl('/api/video/realistic'), {
+        const response = await fetch(apiUrl('/api/video/pixverse'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: shots[i].prompt, aspectRatio: '16:9', resolution: '720p' }),
@@ -95,7 +95,7 @@ export function RealisticVideoButton({ prompt }: Props) {
       if (videoBlob.size < 1000) throw new Error('The finished video file was empty.');
       setUrl(URL.createObjectURL(videoBlob));
       setDone(true);
-      setProgress('Complete: three real AI-generated scenes joined into one video.');
+      setProgress('Complete: three PixVerse-generated scenes joined into one video.');
     } catch (e: any) {
       setError(e?.message || 'Video generation failed.');
       setProgress('');
@@ -113,7 +113,7 @@ export function RealisticVideoButton({ prompt }: Props) {
         </span>
         <span className="text-[11px] text-slate-500">3 live-action scenes</span>
       </div>
-      <p className="text-xs text-slate-600">Generates three moving-video scenes, then joins them into one downloadable MP4. This uses Google Veo video quota; it cannot bypass exhausted API limits.</p>
+      <p className="text-xs text-slate-600">Generates three moving-video scenes, then joins them into one downloadable MP4. Uses the PixVerse video engine. Your server must have PIXVERSE_API_KEY configured and available video credits.</p>
       <button
         onClick={generate}
         disabled={busy || !prompt.trim()}
