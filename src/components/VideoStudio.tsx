@@ -1875,7 +1875,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   </div>
                   <p>{veoError}</p>
                   <p className="text-[11px] text-indigo-700 font-semibold pt-1">
-                    Tip: Switch to the <strong>Narrated Producer</strong> tab to generate and play your video with full voiceover immediately!
+                    Tip: Try <strong>Narrated Producer</strong> for a scene-based video with voiceover. It uses a different workflow, but may have its own provider limits.
                   </p>
                 </div>
               )}
