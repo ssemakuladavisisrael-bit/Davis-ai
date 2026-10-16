@@ -1728,7 +1728,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 Try hosted text-to-video or image-to-video generation without using your laptop's GPU. This uses Wan AI's public service, so queue times, availability, and usage limits are controlled by that provider.
               </p>
               <a
-                href="https://fffiloni-wan2-1.hf.space/"
+                href="https://wan-ai-wan2-1.hf.space/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 px-4 py-2.5 text-xs font-bold transition-colors"
@@ -1745,7 +1745,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <a
-                    href="https://fffiloni-wan2-1.hf.space/"
+                    href="https://wan-ai-wan2-1.hf.space/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 whitespace-nowrap"
@@ -1758,12 +1758,12 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                     rel="noopener noreferrer"
                     className="text-[11px] text-slate-500 hover:text-slate-800 whitespace-nowrap"
                   >
-                    Original Wan demo
+                    Alternative Wan demo (may require paid GPU)
                   </a>
                 </div>
               </div>
               <iframe
-                src="https://fffiloni-wan2-1.hf.space/"
+                src="https://wan-ai-wan2-1.hf.space/"
                 title="Wan AI realistic video generator"
                 className="w-full bg-white"
                 style={{ height: '68vh', minHeight: '480px', border: 0 }}
