@@ -376,8 +376,8 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
       if (!response.ok) throw new Error(data.error || 'Image search failed.');
       const results = Array.isArray(data.results) ? data.results : [];
       const answer = results.length
-        ? `## Web images for “${query.trim()}”\\n\\nThese results are retrieved from **Openverse**. Check each image’s license and terms before reusing it. Davis AI does not own these images.\\n\\n` + results.map((item: any, index: number) => {
-            const safeText = (value: unknown, fallback: string) => typeof value === 'string' && value.trim() ? value.trim().replace(/[\\[\\]\\\\]/g, ' ').slice(0, 180) : fallback;
+        ? `## Web images for “${query.trim()}”\n\nThese results are retrieved from **Openverse**. Check each image’s license and terms before reusing it. Davis AI does not own these images.\n\n` + results.map((item: any, index: number) => {
+            const safeText = (value: unknown, fallback: string) => typeof value === 'string' && value.trim() ? value.trim().replace(/[\[\]\\]/g, ' ').slice(0, 180) : fallback;
             const title = safeText(item.title, 'Untitled image');
             const creator = safeText(item.creator, 'Creator not listed');
             const license = safeText(item.license, 'License details unavailable');
@@ -387,8 +387,8 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
             const licenseUrl = typeof item.licenseUrl === 'string' && item.licenseUrl.startsWith('https://') ? item.licenseUrl : '';
             if (!imageUrl || !sourceUrl) return '';
             const licenseLabel = item.licenseVersion ? `${license} ${item.licenseVersion}` : license;
-            return `### ${index + 1}. ${title}\\n\\n![${title} — Creator: ${creator} — License: ${licenseLabel}](${imageUrl})\\n\\n**Creator:** ${creator} · **Provider:** ${provider} · **License:** ${licenseLabel}\\n\\n[View original source](${sourceUrl})${licenseUrl ? ` · [View license](${licenseUrl})` : ''}`;
-          }).filter(Boolean).join('\\n\\n')
+            return `### ${index + 1}. ${title}\n\n![${title} — Creator: ${creator} — License: ${licenseLabel}](${imageUrl})\n\n**Creator:** ${creator} · **Provider:** ${provider} · **License:** ${licenseLabel}\n\n[View original source](${sourceUrl})${licenseUrl ? ` · [View license](${licenseUrl})` : ''}`;
+          }).filter(Boolean).join('\n\n')
         : `No matching openly licensed images were found for “${query.trim()}”. Try a more specific search phrase.`;
       setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
         ...c,
