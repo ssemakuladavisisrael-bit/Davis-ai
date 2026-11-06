@@ -937,7 +937,7 @@ app.post('/api/image/generate', async (req, res) => {
       input: prompt.trim(),
       response_format: {
         type: 'image',
-        mime_type: 'image/png',
+        mime_type: 'image/jpeg',
         aspect_ratio: ratio,
         image_size: size,
       },
@@ -948,7 +948,7 @@ app.post('/api/image/generate', async (req, res) => {
       throw new Error('The image model returned no image.');
     }
 
-    res.json({ image: image.data, mimeType: image.mime_type || 'image/png' });
+    res.json({ image: image.data, mimeType: image.mime_type || 'image/jpeg' });
   } catch (err: any) {
     console.error('Image generation error:', err);
     res.status(500).json({
