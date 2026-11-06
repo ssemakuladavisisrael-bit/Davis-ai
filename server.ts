@@ -46,7 +46,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use('/api/video', pixverseRouter);
 
 const DEFAULT_SYSTEM_INSTRUCTION = `You are Davis AI, a versatile, highly intelligent, friendly, and honest conversational assistant.
@@ -149,7 +149,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // MP4 video analysis endpoint. Davis AI can accept an MP4 directly and ask Gemini to understand it.
-app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }), async (req, res) => {
+app.post('/api/video/analyze', rateLimit({ windowMs: 60_000, limit: 3, standardHeaders: 'draft-7', legacyHeaders: false }), express.raw({ type: 'video/mp4', limit: '100mb' }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -395,7 +395,7 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
 });
 
 // Real-time web research endpoint with Google Search grounding and source citations.
-app.post('/api/research', async (req, res) => {
+app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -537,7 +537,7 @@ function buildLocalVideoPlan(topic: string, audience: string, duration: number, 
   };
 }
 
-app.post('/api/video/plan', async (req, res) => {
+app.post('/api/video/plan', rateLimit({ windowMs: 60_000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const { topic, audience, duration, style } = req.body || {};
   if (!topic || typeof topic !== 'string') {
@@ -692,7 +692,7 @@ async function fallbackSynthesizeSpeech(text: string, voiceName = 'Puck'): Promi
 }
 
 // AI Video Narration (TTS) endpoint
-app.post('/api/video/tts', async (req, res) => {
+app.post('/api/video/tts', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const { text, voiceName } = req.body || {};
   if (!text || typeof text !== 'string') {
@@ -771,7 +771,7 @@ function sendVeoError(res: any, err: any, fallback: string) {
 }
 
 // Google Veo AI Video generation (Start operation)
-app.post('/api/video/veo', async (req, res) => {
+app.post('/api/video/veo', rateLimit({ windowMs: 60_000, limit: 2, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -879,7 +879,7 @@ app.post('/api/video/veo/download', async (req, res) => {
 });
 
 // Realistic Video Generation endpoint (synchronous wait & stream for RealisticVideoButton)
-app.post('/api/video/realistic', async (req, res) => {
+app.post('/api/video/realistic', rateLimit({ windowMs: 60_000, limit: 2, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
