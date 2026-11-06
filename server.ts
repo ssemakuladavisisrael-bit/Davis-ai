@@ -397,6 +397,71 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
 });
 
 // Real-time web research endpoint with Google Search grounding and source citations.
+// Search openly licensed images through Openverse. Results retain creator, source and license metadata.
+app.post('/api/images/search', rateLimit({ windowMs: 60_000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  const parsed = z.object({
+    query: z.string().trim().min(2).max(200),
+    page: z.number().int().min(1).max(5).optional(),
+  }).safeParse(req.body || {});
+
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Enter an image search phrase between 2 and 200 characters.' });
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      q: parsed.data.query,
+      page: String(parsed.data.page || 1),
+      page_size: '8',
+      mature: 'false',
+      filter_dead: 'true',
+    });
+    const upstream = await fetch(`https://api.openverse.org/v1/images/?${params.toString()}`, {
+      headers: { Accept: 'application/json', 'User-Agent': 'DavisAI/1.0 (openverse image search)' },
+      signal: AbortSignal.timeout(12_000),
+    });
+
+    if (!upstream.ok) {
+      if (upstream.status === 429) {
+        res.status(503).json({ error: 'Image search is temporarily busy. Please wait a moment and try again.' });
+        return;
+      }
+      throw new Error(`Openverse image search returned HTTP ${upstream.status}.`);
+    }
+
+    const payload = await upstream.json() as { results?: Array<Record<string, unknown>>; result_count?: number };
+    const results = (Array.isArray(payload.results) ? payload.results : []).flatMap((item) => {
+      const imageUrl = typeof item.thumbnail === 'string' ? item.thumbnail : item.url;
+      const sourceUrl = item.foreign_landing_url;
+      const licenseUrl = item.license_url;
+      if (typeof imageUrl !== 'string' || !imageUrl.startsWith('https://') ||
+          typeof sourceUrl !== 'string' || !sourceUrl.startsWith('https://')) return [];
+
+      return [{
+        id: typeof item.id === 'string' ? item.id : '',
+        title: typeof item.title === 'string' && item.title.trim() ? item.title.trim().slice(0, 180) : 'Untitled image',
+        imageUrl,
+        sourceUrl,
+        creator: typeof item.creator === 'string' && item.creator.trim() ? item.creator.trim().slice(0, 120) : 'Creator not listed',
+        creatorUrl: typeof item.creator_url === 'string' && item.creator_url.startsWith('https://') ? item.creator_url : null,
+        provider: typeof item.provider === 'string' ? item.provider : 'Openverse',
+        license: typeof item.license === 'string' ? item.license.toUpperCase() : 'License details unavailable',
+        licenseVersion: typeof item.license_version === 'string' ? item.license_version : '',
+        licenseUrl: typeof licenseUrl === 'string' && licenseUrl.startsWith('https://') ? licenseUrl : null,
+        attribution: typeof item.attribution === 'string' ? item.attribution.slice(0, 500) : '',
+        width: typeof item.width === 'number' ? item.width : null,
+        height: typeof item.height === 'number' ? item.height : null,
+      }];
+    });
+
+    res.json({ query: parsed.data.query, results, resultCount: Number(payload.result_count) || results.length, provider: 'Openverse' });
+  } catch (error: any) {
+    console.error('Openverse image search error:', error);
+    res.status(502).json({ error: 'Davis AI could not retrieve web images right now. Please try again later.' });
+  }
+});
+
 app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
