@@ -803,7 +803,7 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
-              onClick={() => setResearchMode((v) => !v)}
+              onClick={() => { setResearchMode((v) => !v); setImageSearchMode(false); }}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${researchMode ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
               title="Research current information from the web with cited sources"
             >
