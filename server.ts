@@ -17,6 +17,10 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
 
+// Render runs behind a single trusted reverse proxy. This lets express-rate-limit
+// use the forwarded client IP safely instead of rejecting X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Apply baseline HTTP security headers. COEP/CSP are disabled here because
 // the existing browser-based FFmpeg and media workflows require cross-origin assets.
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
