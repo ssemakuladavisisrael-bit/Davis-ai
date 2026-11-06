@@ -1,4 +1,7 @@
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,6 +16,21 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
+
+// Apply baseline HTTP security headers. COEP/CSP are disabled here because
+// the existing browser-based FFmpeg and media workflows require cross-origin assets.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+const chatRateLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many chat requests. Please wait a minute and try again.' } });
+const imageRateLimit = rateLimit({ windowMs: 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Image generation is temporarily rate-limited. Please wait before trying again.' } });
+
+const chatRequestSchema = z.object({
+  messages: z.array(z.object({ role: z.string().max(30), content: z.string().max(30_000) }).passthrough()).min(1).max(60),
+  systemInstruction: z.string().max(12_000).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  model: z.enum(['gemini-3.1-flash-lite', 'gemini-3.8-flash']).optional(),
+}).passthrough();
+const imageRequestSchema = z.object({ prompt: z.string().trim().min(1).max(2048) });
 
 // Allow the GitHub Pages frontend (or another configured frontend) to call this backend.
 // Credentials and the Gemini API key remain server-side; this only enables browser CORS.
@@ -198,7 +216,13 @@ app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }
 });
 
 // Streaming chat endpoint
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', chatRateLimit, async (req, res) => {
+  const parsedRequest = chatRequestSchema.safeParse(req.body);
+  if (!parsedRequest.success) {
+    res.status(400).json({ error: 'Invalid chat request. Check that messages are present and within the allowed size.' });
+    return;
+  }
+  req.body = parsedRequest.data;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({
@@ -299,7 +323,13 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Non-streaming chat fallback
-app.post('/api/chat/sync', async (req, res) => {
+app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
+  const parsedRequest = chatRequestSchema.safeParse(req.body);
+  if (!parsedRequest.success) {
+    res.status(400).json({ error: 'Invalid chat request. Check that messages are present and within the allowed size.' });
+    return;
+  }
+  req.body = parsedRequest.data;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({
@@ -913,7 +943,7 @@ app.post('/api/video/realistic', async (req, res) => {
 
 // Cloudflare Workers AI image generation (FLUX.1 Schnell).
 // Keep image generation independent from Gemini chat quotas.
-app.post('/api/image/generate', async (req, res) => {
+app.post('/api/image/generate', imageRateLimit, async (req, res) => {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
   const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
@@ -924,15 +954,12 @@ app.post('/api/image/generate', async (req, res) => {
     return;
   }
 
-  const { prompt } = req.body || {};
-  if (typeof prompt !== 'string' || !prompt.trim()) {
-    res.status(400).json({ error: 'Prompt is required for image generation.' });
+  const parsedPrompt = imageRequestSchema.safeParse(req.body || {});
+  if (!parsedPrompt.success) {
+    res.status(400).json({ error: 'Enter an image prompt between 1 and 2,048 characters.' });
     return;
   }
-  if (prompt.trim().length > 2048) {
-    res.status(400).json({ error: 'Please keep the image prompt under 2,048 characters.' });
-    return;
-  }
+  const prompt = parsedPrompt.data.prompt;
 
   try {
     const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/@cf/black-forest-labs/flux-1-schnell`;
