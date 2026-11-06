@@ -5,9 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    // WebSocket-free production build for GitHub Pages.\n    // GitHub Pages does not provide a Vite HMR socket.\n    // GitHub Pages serves this repository from /Davis-ai/.
-    // Keep API calls root-relative so the hosted frontend can still talk to a backend when configured.
-    base: '/Davis-ai/',
+    // Render serves the app from the domain root; GitHub Pages uses the repository subpath.
+    base: process.env.RENDER ? '/' : '/Davis-ai/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -16,7 +15,6 @@ export default defineConfig(() => {
     },
     server: {
       // Do not open a Vite HMR WebSocket in hosted/preview environments.
-      // The app does not depend on WebSockets for its API features.
       hmr: false,
       ws: false,
       watch: null,
