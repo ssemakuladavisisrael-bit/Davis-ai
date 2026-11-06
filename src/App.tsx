@@ -80,6 +80,7 @@ export default function App() {
   const [videoStudioConfig, setVideoStudioConfig] = useState<ImportedVideoConfig | undefined>(undefined);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [researchMode, setResearchMode] = useState(false);
+  const [imageSearchMode, setImageSearchMode] = useState(false);
 
   const openECDCourseworkVideo = () => {
     setVideoStudioConfig({
@@ -340,9 +341,80 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
     }
   };
 
+  // Search openly licensed web images and keep source/creator/license labels with every result.
+  const handleImageSearchMessage = async (query: string) => {
+    if (!query.trim() || isStreaming) return;
+
+    let targetConvId = activeId;
+    let targetMessages: Message[] = [];
+    if (!targetConvId || !activeConversation) {
+      const newId = `conv-${Date.now()}`;
+      const newConv: Conversation = { id: newId, title: query.trim().slice(0, 32) + (query.trim().length > 32 ? '...' : ''), createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
+      setConversations((prev) => [newConv, ...prev]);
+      setActiveId(newId);
+      targetConvId = newId;
+    } else {
+      targetMessages = [...activeConversation.messages];
+    }
+
+    const userMessage: Message = { id: `msg-${Date.now()}-user`, role: 'user', content: query.trim(), timestamp: Date.now() };
+    const assistantId = `msg-${Date.now()}-images`;
+    const assistantMessage: Message = { id: assistantId, role: 'assistant', content: 'Searching openly licensed images…', timestamp: Date.now() };
+    setConversations((prev) => prev.map((c) => c.id === targetConvId ? { ...c, messages: [...targetMessages, userMessage, assistantMessage], updatedAt: Date.now() } : c));
+    setInput('');
+    setIsStreaming(true);
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const response = await fetch(apiUrl('/api/images/search'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim() }),
+        signal: abortControllerRef.current.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Image search failed.');
+      const results = Array.isArray(data.results) ? data.results : [];
+      const answer = results.length
+        ? `## Web images for “${query.trim()}”\\n\\nThese results are retrieved from **Openverse**. Check each image’s license and terms before reusing it. Davis AI does not own these images.\\n\\n` + results.map((item: any, index: number) => {
+            const safeText = (value: unknown, fallback: string) => typeof value === 'string' && value.trim() ? value.trim().replace(/[\\[\\]\\\\]/g, ' ').slice(0, 180) : fallback;
+            const title = safeText(item.title, 'Untitled image');
+            const creator = safeText(item.creator, 'Creator not listed');
+            const license = safeText(item.license, 'License details unavailable');
+            const provider = safeText(item.provider, 'Openverse');
+            const imageUrl = typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https://') ? item.imageUrl : '';
+            const sourceUrl = typeof item.sourceUrl === 'string' && item.sourceUrl.startsWith('https://') ? item.sourceUrl : '';
+            const licenseUrl = typeof item.licenseUrl === 'string' && item.licenseUrl.startsWith('https://') ? item.licenseUrl : '';
+            if (!imageUrl || !sourceUrl) return '';
+            const licenseLabel = item.licenseVersion ? `${license} ${item.licenseVersion}` : license;
+            return `### ${index + 1}. ${title}\\n\\n![${title} — Creator: ${creator} — License: ${licenseLabel}](${imageUrl})\\n\\n**Creator:** ${creator} · **Provider:** ${provider} · **License:** ${licenseLabel}\\n\\n[View original source](${sourceUrl})${licenseUrl ? ` · [View license](${licenseUrl})` : ''}`;
+          }).filter(Boolean).join('\\n\\n')
+        : `No matching openly licensed images were found for “${query.trim()}”. Try a more specific search phrase.`;
+      setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
+        ...c,
+        messages: c.messages.map((m) => m.id === assistantId ? { ...m, content: answer } : m),
+        updatedAt: Date.now(),
+      } : c));
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
+          ...c,
+          messages: c.messages.map((m) => m.id === assistantId ? { ...m, content: err?.message || 'Image search failed. Please try again.', isError: true } : m),
+        } : c));
+      }
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+    }
+  };
+
   // Main message send logic
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isStreaming) return;
+    if (imageSearchMode) {
+      await handleImageSearchMessage(textToSend);
+      return;
+    }
     if (researchMode) {
       await handleResearchMessage(textToSend);
       return;
@@ -739,6 +811,16 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
               <span className="hidden sm:inline">{researchMode ? 'Research On' : 'Research'}</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => { setImageSearchMode((v) => !v); setResearchMode(false); }}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${imageSearchMode ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+              title="Find openly licensed images on the web with creator and license labels"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{imageSearchMode ? 'Images On' : 'Images'}</span>
+            </button>
+
             {/* Quick Model Selector Pill */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
               <button
@@ -879,6 +961,12 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
           <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
             <Globe2 className="w-4 h-4 shrink-0" />
             <span><strong>Research mode:</strong> Davis AI will use current web information and include source links. Turn it off for normal chat.</span>
+          </div>
+        )}
+        {imageSearchMode && (
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+            <Search className="w-4 h-4 shrink-0" />
+            <span><strong>Web image search:</strong> Find openly licensed images. Results show creator, provider, source and license; check the license before reuse.</span>
           </div>
         )}
 
