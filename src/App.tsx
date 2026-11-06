@@ -253,6 +253,7 @@ When the user asks to be taught, act like an excellent university lecturer and t
 13. Adapt to the learner's stated level. For a first-year nursing student, use clear first-year language while retaining correct scientific terminology and enough depth for university assessment.
 14. VISUAL TEACHING: When a diagram, labelled anatomy, process flow, comparison, or developmental timeline would materially improve understanding, include a clear text-based labelled diagram or Mermaid flowchart in a fenced code block. Explain the diagram below it. Never invent an image URL or pretend a diagram is a real photograph. If the user asks for an actual generated illustration, direct them to the app's image-generation workflow when available.
 15. In a continuing lesson, briefly connect new material to what has already been taught and build progressively. Ask one focused retrieval question at a natural stopping point rather than ending every answer with a long quiz.
+16. INLINE TEACHING ILLUSTRATIONS: For anatomy, physiology, biology, embryology, procedures or other visual learning topics, decide whether one custom illustration would genuinely improve understanding. If it would, finish the response with exactly one image request marker on its own line using this exact format: [[DAVIS_IMAGE: a detailed visual-generation prompt]]. Write a specific, scientifically accurate prompt describing the subject, viewpoint, structures and visual style. Prefer a clean university textbook illustration, clear anatomy, uncluttered composition and no tiny or garbled text. Explain labels and important structures in the surrounding written answer. Do not use the marker for ordinary conversation, text-only exam answers or when an image adds little value. Never invent an image URL.
 
 WRITING AND PROBLEM-SOLVING
 - For writing requests, produce a complete, usable draft in the requested format and tone.
@@ -487,6 +488,50 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
             // Non-JSON SSE line or parse error
           }
         }
+      }
+
+      // Generate one relevant inline teaching illustration when Davis AI explicitly requests it.
+      const imageRequestMatch = accumulatedText.match(/\[\[DAVIS_IMAGE:([\s\S]*?)\]\]/);
+      if (imageRequestMatch) {
+        const visualPrompt = imageRequestMatch[1].trim().slice(0, 2048);
+        accumulatedText = accumulatedText.replace(/\s*\[\[DAVIS_IMAGE:[\s\S]*?\]\]/g, '').trim();
+        setConversations((prev) =>
+          prev.map((c) => c.id !== targetConvId ? c : ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantPlaceholderId
+                ? { ...m, content: accumulatedText + "\n\n*Creating your teaching illustration…*" }
+                : m
+            ),
+          }))
+        );
+        try {
+          const imageResponse = await fetch(apiUrl('/api/image/generate'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: "Create a scientifically accurate university-level educational illustration. " + visualPrompt + " Use a clean textbook-quality composition, clear structures, uncluttered background, accurate proportions and no tiny or garbled text. The surrounding lesson provides the labels and explanations.",
+            }),
+            signal: abortControllerRef.current?.signal,
+          });
+          const imageData = await imageResponse.json().catch(() => ({}));
+          if (!imageResponse.ok || typeof imageData.image !== 'string' || !imageData.image) {
+            throw new Error(imageData.error || 'Image generation was unavailable.');
+          }
+          accumulatedText += "\n\n![Educational illustration](data:image/jpeg;base64," + imageData.image + ")";
+        } catch (imageError: any) {
+          if (imageError?.name === 'AbortError') throw imageError;
+          console.warn('Inline teaching illustration unavailable:', imageError);
+          accumulatedText += "\n\n*I could not create the illustration this time, but the written explanation is available above.*";
+        }
+        setConversations((prev) =>
+          prev.map((c) => c.id !== targetConvId ? c : ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantPlaceholderId ? { ...m, content: accumulatedText } : m
+            ),
+          }))
+        );
       }
 
       // Final check: if text is empty, display helpful notice
