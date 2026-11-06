@@ -181,10 +181,13 @@ app.post('/api/video/analyze', rateLimit({ windowMs: 60_000, limit: 3, standardH
       config: { mimeType: 'video/mp4' },
     });
 
+    const uploadedFileName = videoFile.name;
+    if (!uploadedFileName) throw new Error('Gemini did not return an uploaded file identifier.');
+
     let attempts = 0;
     while (videoFile.state?.toString() === 'PROCESSING' && attempts < 30) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      videoFile = await ai.files.get({ name: videoFile.name });
+      videoFile = await ai.files.get({ name: uploadedFileName });
       attempts++;
     }
 
