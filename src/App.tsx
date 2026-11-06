@@ -607,7 +607,7 @@ Guidelines:
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white">
+    <div className="app-viewport flex w-full overflow-hidden bg-white">
       {/* Left Sidebar */}
       <Sidebar
         conversations={conversations}
@@ -628,7 +628,7 @@ Guidelines:
       {/* Main Chat Workspace */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#fbfcfd] relative overflow-hidden">
         {/* Top Header Bar */}
-        <header className="h-14 border-b border-slate-200/80 bg-white/80 backdrop-blur px-4 flex items-center justify-between z-10">
+        <header className="h-14 min-h-14 shrink-0 border-b border-slate-200/80 bg-white/90 backdrop-blur px-2 sm:px-4 flex items-center justify-between gap-1 z-10">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -658,7 +658,7 @@ Guidelines:
             </button>
 
             {/* Quick Model Selector Pill */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
+            <div className="hidden sm:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
               <button
                 type="button"
                 onClick={() => setModel('gemini-3.1-flash-lite')}
@@ -801,7 +801,7 @@ Guidelines:
         )}
 
         {/* Chat Input Bar */}
-        <div className="bg-gradient-to-t from-white via-white/95 to-transparent pt-3">
+        <div className="shrink-0 bg-gradient-to-t from-white via-white/95 to-transparent pt-3">
           <ChatInput
             input={input}
             setInput={setInput}
