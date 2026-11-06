@@ -1,4 +1,7 @@
 import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,6 +17,21 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
 
+// Apply baseline HTTP security headers. COEP/CSP are disabled here because
+// the existing browser-based FFmpeg and media workflows require cross-origin assets.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+const chatRateLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Too many chat requests. Please wait a minute and try again.' } });
+const imageRateLimit = rateLimit({ windowMs: 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Image generation is temporarily rate-limited. Please wait before trying again.' } });
+
+const chatRequestSchema = z.object({
+  messages: z.array(z.object({ role: z.string().max(30), content: z.string().max(30_000) }).passthrough()).min(1).max(60),
+  systemInstruction: z.string().max(12_000).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  model: z.enum(['gemini-3.1-flash-lite', 'gemini-3.8-flash']).optional(),
+}).passthrough();
+const imageRequestSchema = z.object({ prompt: z.string().trim().min(1).max(2048) });
+
 // Allow the GitHub Pages frontend (or another configured frontend) to call this backend.
 // Credentials and the Gemini API key remain server-side; this only enables browser CORS.
 app.use((req, res, next) => {
@@ -28,7 +46,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use('/api/video', pixverseRouter);
 
 const DEFAULT_SYSTEM_INSTRUCTION = `You are Davis AI, a versatile, highly intelligent, friendly, and honest conversational assistant.
@@ -131,7 +149,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // MP4 video analysis endpoint. Davis AI can accept an MP4 directly and ask Gemini to understand it.
-app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }), async (req, res) => {
+app.post('/api/video/analyze', rateLimit({ windowMs: 60_000, limit: 3, standardHeaders: 'draft-7', legacyHeaders: false }), express.raw({ type: 'video/mp4', limit: '100mb' }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -163,10 +181,13 @@ app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }
       config: { mimeType: 'video/mp4' },
     });
 
+    const uploadedFileName = videoFile.name;
+    if (!uploadedFileName) throw new Error('Gemini did not return an uploaded file identifier.');
+
     let attempts = 0;
     while (videoFile.state?.toString() === 'PROCESSING' && attempts < 30) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      videoFile = await ai.files.get({ name: videoFile.name });
+      videoFile = await ai.files.get({ name: uploadedFileName });
       attempts++;
     }
 
@@ -198,7 +219,13 @@ app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }
 });
 
 // Streaming chat endpoint
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', chatRateLimit, async (req, res) => {
+  const parsedRequest = chatRequestSchema.safeParse(req.body);
+  if (!parsedRequest.success) {
+    res.status(400).json({ error: 'Invalid chat request. Check that messages are present and within the allowed size.' });
+    return;
+  }
+  req.body = parsedRequest.data;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({
@@ -299,7 +326,13 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // Non-streaming chat fallback
-app.post('/api/chat/sync', async (req, res) => {
+app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
+  const parsedRequest = chatRequestSchema.safeParse(req.body);
+  if (!parsedRequest.success) {
+    res.status(400).json({ error: 'Invalid chat request. Check that messages are present and within the allowed size.' });
+    return;
+  }
+  req.body = parsedRequest.data;
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({
@@ -365,7 +398,7 @@ app.post('/api/chat/sync', async (req, res) => {
 });
 
 // Real-time web research endpoint with Google Search grounding and source citations.
-app.post('/api/research', async (req, res) => {
+app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -507,7 +540,7 @@ function buildLocalVideoPlan(topic: string, audience: string, duration: number, 
   };
 }
 
-app.post('/api/video/plan', async (req, res) => {
+app.post('/api/video/plan', rateLimit({ windowMs: 60_000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const { topic, audience, duration, style } = req.body || {};
   if (!topic || typeof topic !== 'string') {
@@ -662,7 +695,7 @@ async function fallbackSynthesizeSpeech(text: string, voiceName = 'Puck'): Promi
 }
 
 // AI Video Narration (TTS) endpoint
-app.post('/api/video/tts', async (req, res) => {
+app.post('/api/video/tts', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const { text, voiceName } = req.body || {};
   if (!text || typeof text !== 'string') {
@@ -741,7 +774,7 @@ function sendVeoError(res: any, err: any, fallback: string) {
 }
 
 // Google Veo AI Video generation (Start operation)
-app.post('/api/video/veo', async (req, res) => {
+app.post('/api/video/veo', rateLimit({ windowMs: 60_000, limit: 2, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -849,7 +882,7 @@ app.post('/api/video/veo/download', async (req, res) => {
 });
 
 // Realistic Video Generation endpoint (synchronous wait & stream for RealisticVideoButton)
-app.post('/api/video/realistic', async (req, res) => {
+app.post('/api/video/realistic', rateLimit({ windowMs: 60_000, limit: 2, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
@@ -913,7 +946,7 @@ app.post('/api/video/realistic', async (req, res) => {
 
 // Cloudflare Workers AI image generation (FLUX.1 Schnell).
 // Keep image generation independent from Gemini chat quotas.
-app.post('/api/image/generate', async (req, res) => {
+app.post('/api/image/generate', imageRateLimit, async (req, res) => {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
   const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
 
@@ -924,15 +957,12 @@ app.post('/api/image/generate', async (req, res) => {
     return;
   }
 
-  const { prompt } = req.body || {};
-  if (typeof prompt !== 'string' || !prompt.trim()) {
-    res.status(400).json({ error: 'Prompt is required for image generation.' });
+  const parsedPrompt = imageRequestSchema.safeParse(req.body || {});
+  if (!parsedPrompt.success) {
+    res.status(400).json({ error: 'Enter an image prompt between 1 and 2,048 characters.' });
     return;
   }
-  if (prompt.trim().length > 2048) {
-    res.status(400).json({ error: 'Please keep the image prompt under 2,048 characters.' });
-    return;
-  }
+  const prompt = parsedPrompt.data.prompt;
 
   try {
     const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/@cf/black-forest-labs/flux-1-schnell`;

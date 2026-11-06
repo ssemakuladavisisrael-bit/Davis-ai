@@ -91,7 +91,8 @@ export function RealisticVideoButton({ prompt }: Props) {
       if (result !== 0) throw new Error('The scenes were generated, but this browser could not join them. Try a desktop Chrome browser with more available memory.');
 
       const output = await ffmpeg.readFile('complete.mp4');
-      const videoBlob = new Blob([output as Uint8Array], { type: 'video/mp4' });
+      const videoBytes = new Uint8Array(output as Uint8Array);
+      const videoBlob = new Blob([videoBytes.buffer as ArrayBuffer], { type: 'video/mp4' });
       if (videoBlob.size < 1000) throw new Error('The finished video file was empty.');
       setUrl(URL.createObjectURL(videoBlob));
       setDone(true);
