@@ -103,7 +103,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
   // Veo State
   const [veoPrompt, setVeoPrompt] = useState('');
   const [presenterStyle, setPresenterStyle] = useState('A realistic human presenter');
-  const [veoResolution, setVeoResolution] = useState<'720p' | '540p'>('720p');
+  const [veoResolution, setVeoResolution] = useState<'720p' | '540p' | '1080p'>('720p');
   const [veoAspectRatio, setVeoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [veoStatus, setVeoStatus] = useState<'idle' | 'starting' | 'polling' | 'downloading' | 'completed' | 'error'>('idle');
   const [veoOperationName, setVeoOperationName] = useState<string | null>(null);
@@ -1852,7 +1852,7 @@ export function VideoStudio({ isOpen, onClose, initialTopic = '', initialConfig 
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Resolution</label>
                   <select
                     value={veoResolution}
-                    onChange={(e) => setVeoResolution(e.target.value as '720p' | '1080p')}
+                    onChange={(e) => setVeoResolution(e.target.value as '720p' | '540p' | '1080p')}
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-800"
                   >
                     <option value="720p">720p (Faster generation)</option>
