@@ -25,11 +25,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       const parsed = marked.parseInline(rawText);
       if (typeof parsed !== 'string') return rawText;
       // Only allow trusted HTTPS images or generated base64 raster images in chat.
-      return parsed.replace(/<img\\b[^>]*>/gi, (tag) => {
-        const srcMatch = tag.match(/\\bsrc=(["'])(.*?)\\1/i);
+      return parsed.replace(/<img\b[^>]*>/gi, (tag) => {
+        const srcMatch = tag.match(/\bsrc=(["'])(.*?)\1/i);
         if (!srcMatch) return '';
         const src = srcMatch[2];
-        const allowed = /^https:\\/\\//i.test(src) || /^data:image\\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(src);
+        const allowed = /^https:\/\//i.test(src) || /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(src);
         return allowed ? tag : '';
       });
     } catch {
