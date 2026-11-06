@@ -9,8 +9,6 @@ interface ImageStudioProps {
 
 export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => {
   const [prompt, setPrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('1:1');
-  const [imageSize, setImageSize] = useState('1K');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
@@ -26,11 +24,11 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
       const response = await fetch(apiUrl('/api/image/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, imageSize }),
+        body: JSON.stringify({ prompt: prompt.trim() }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Image generation failed.');
-      setImageUrl(`data:${data.mimeType || 'image/png'};base64,${data.image}`);
+      setImageUrl(`data:${data.mimeType || 'image/jpeg'};base64,${data.image}`);
     } catch (err: any) {
       setError(err?.message || 'Could not generate the image.');
     } finally {
@@ -42,14 +40,14 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
     if (!imageUrl) return;
     try {
       const [meta, base64] = imageUrl.split(',');
-      const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/png';
+      const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `davis-ai-image-${Date.now()}.png`;
+      a.download = `davis-ai-image-${Date.now()}.${mime === 'image/png' ? 'png' : 'jpg'}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -57,7 +55,7 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
     } catch {
       const a = document.createElement('a');
       a.href = imageUrl;
-      a.download = `davis-ai-image-${Date.now()}.png`;
+      a.download = `davis-ai-image-${Date.now()}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -93,19 +91,8 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
                 className="w-full min-h-40 rounded-2xl border border-slate-200 p-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-semibold text-slate-700">
-                Aspect ratio
-                <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 p-2.5 bg-white">
-                  <option>1:1</option><option>16:9</option><option>9:16</option><option>4:3</option><option>3:4</option>
-                </select>
-              </label>
-              <label className="text-xs font-semibold text-slate-700">
-                Quality
-                <select value={imageSize} onChange={(e) => setImageSize(e.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 p-2.5 bg-white">
-                  <option>1K</option><option>2K</option><option>4K</option>
-                </select>
-              </label>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs text-indigo-800">
+              <strong>Image model:</strong> FLUX.1 Schnell · <strong>Output:</strong> 1024 × 1024 · JPEG
             </div>
             <button
               onClick={generate}
@@ -115,7 +102,7 @@ export const ImageStudio: React.FC<ImageStudioProps> = ({ isOpen, onClose }) => 
               {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</> : <><Sparkles className="w-5 h-5" /> Generate Image</>}
             </button>
             {error && <div className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm p-3">{error}</div>}
-            <p className="text-[11px] text-slate-500">Davis AI uses Gemini's native image generation for high-quality visuals and can later be extended with image editing and reference-image workflows.</p>
+            <p className="text-[11px] text-slate-500">Davis AI uses Cloudflare Workers AI with FLUX.1 Schnell. Image generation requires a configured Cloudflare Workers AI token.</p>
           </div>
 
           <div className="min-h-[360px] rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center overflow-hidden">
