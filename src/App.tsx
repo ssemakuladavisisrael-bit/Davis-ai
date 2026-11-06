@@ -234,7 +234,7 @@ CORE BEHAVIOUR
 - Use Markdown structure when it improves readability. Use tables only when comparison is genuinely clearer.
 - Preserve context from the conversation. Do not ask the user to repeat information already provided.
 - For multi-step tasks, provide a practical sequence and identify what is completed versus what remains.
-- For current or changing facts, use available research tools when enabled; cite sources and distinguish source evidence from your own explanation.
+- Automatically search the public web for explicit search/research requests and for current or changing facts; do not make the user activate a separate Research button. Cite the sources you actually consulted and distinguish source evidence from your own explanation. Keep ordinary conversation, tutoring and creative tasks in normal chat unless web research is requested.
 - For medical, legal, financial and safety topics, be careful, explain limitations and encourage appropriate professional verification. Never present educational information as a personal diagnosis or guaranteed outcome.
 
 TEACHING AND ACADEMIC MODE
@@ -415,7 +415,14 @@ If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, 
       await handleImageSearchMessage(textToSend);
       return;
     }
-    if (researchMode) {
+    // Automatically use web research for explicit search requests and time-sensitive facts.
+    // Ordinary conversation, tutoring and creative work continue through the normal chat path.
+    const query = textToSend.trim();
+    const shouldAutoResearch =
+      /\\b(search|research|look\\s*up|google|browse|web\\s+search|find\\s+(?:out|information|details|sources|evidence|news|updates)|check\\s+(?:online|the\\s+web)|on\\s+the\\s+web|online\\s+search|publicly\\s+available\\s+information)\\b/i.test(query) ||
+      /\\b(latest|current|today|right\\s+now|this\\s+week|recent\\s+news|breaking\\s+news|up\\s+to\\s+date)\\b/i.test(query);
+
+    if (researchMode || shouldAutoResearch) {
       await handleResearchMessage(textToSend);
       return;
     }
