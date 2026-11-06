@@ -1,14 +1,18 @@
 import React from 'react';
-import { 
-  Sparkles, 
-  GraduationCap, 
-  Code2, 
-  PenTool, 
-  Lightbulb, 
-  Film, 
+import {
+  Sparkles,
+  GraduationCap,
+  BookOpen,
+  Stethoscope,
+  Brain,
+  ClipboardCheck,
+  Search,
+  PenTool,
+  Film,
   ArrowRight,
   ShieldCheck,
-  Zap
+  Zap,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface WelcomeScreenProps {
@@ -20,13 +24,55 @@ interface WelcomeScreenProps {
   onOpenCourseworkVideo?: () => void;
 }
 
-interface PromptSuggestion {
-  category: string;
-  icon: React.ReactNode;
-  prompt: string;
-  badgeColor: string;
-  hoverBorder: string;
-}
+const studyTools = [
+  {
+    title: 'Anatomy',
+    description: 'Learn body structures, regions and relationships.',
+    icon: <Stethoscope className="h-5 w-5" />,
+    prompt: 'Teach me human anatomy at first-year university level. Start with the learning objectives, explain the structures and their functions in depth, use accurate anatomical terminology, and connect the topic to clinical nursing practice. Ask me one question to check my understanding.',
+    tint: 'from-sky-500/10 to-cyan-500/5',
+    iconTone: 'text-sky-700 bg-sky-100',
+  },
+  {
+    title: 'Embryology',
+    description: 'Understand human development step by step.',
+    icon: <Brain className="h-5 w-5" />,
+    prompt: 'Teach me human embryology at first-year Bachelor of Nursing Science level. Explain the developmental timeline, origin of tissues, sequence of events, resulting structures, and relevant clinical abnormalities. Use clear university-level detail and explain why each stage matters.',
+    tint: 'from-violet-500/10 to-fuchsia-500/5',
+    iconTone: 'text-violet-700 bg-violet-100',
+  },
+  {
+    title: 'Nursing Studies',
+    description: 'Connect theory, patient care and clinical practice.',
+    icon: <BookOpen className="h-5 w-5" />,
+    prompt: 'Help me study Bachelor of Nursing Science. Explain the topic systematically, define important terms, connect theory to patient care, and give practical nursing examples at first-year university level.',
+    tint: 'from-emerald-500/10 to-teal-500/5',
+    iconTone: 'text-emerald-700 bg-emerald-100',
+  },
+  {
+    title: 'Exam Preparation',
+    description: 'Practise structured questions and model answers.',
+    icon: <ClipboardCheck className="h-5 w-5" />,
+    prompt: 'Prepare me for a university examination on this topic. First teach the examinable concepts in depth, then give realistic structured and essay questions with complete model answers matched to the marks. Explain what earns marks.',
+    tint: 'from-amber-500/10 to-orange-500/5',
+    iconTone: 'text-amber-700 bg-amber-100',
+  },
+];
+
+const assistantTools = [
+  {
+    title: 'Research & Explain',
+    description: 'Explore a topic, compare evidence and understand difficult ideas.',
+    icon: <Search className="h-4 w-4" />,
+    prompt: 'Help me research and understand this topic. Separate established facts from interpretations, explain the evidence clearly, and identify reliable sources I should consult.',
+  },
+  {
+    title: 'Writing & Communication',
+    description: 'Prepare clear, professional documents and messages.',
+    icon: <PenTool className="h-4 w-4" />,
+    prompt: 'Help me prepare a clear, professional piece of writing. Ask only if an essential detail is missing, and make the result ready to use.',
+  },
+];
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onSelectPrompt,
@@ -36,168 +82,122 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onOpenVideoStudio,
   onOpenCourseworkVideo,
 }) => {
-  const suggestions: PromptSuggestion[] = [
-    {
-      category: 'AI Video',
-      icon: <Film className="w-4 h-4 text-indigo-600" />,
-      prompt: 'Create an engaging 60-second educational video explaining how black holes bend space and time.',
-      badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      hoverBorder: 'hover:border-indigo-300',
-    },
-    {
-      category: 'Programming',
-      icon: <Code2 className="w-4 h-4 text-emerald-600" />,
-      prompt: 'Write a TypeScript debounce function with proper generics, return types, and cleanup logic.',
-      badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      hoverBorder: 'hover:border-emerald-300',
-    },
-    {
-      category: 'Learning',
-      icon: <GraduationCap className="w-4 h-4 text-sky-600" />,
-      prompt: 'Explain quantum computing and superposition using a simple coin-flipping analogy.',
-      badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
-      hoverBorder: 'hover:border-sky-300',
-    },
-    {
-      category: 'Writing',
-      icon: <PenTool className="w-4 h-4 text-amber-600" />,
-      prompt: 'Draft a warm, polite and confident follow-up email after a second-round interview.',
-      badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-      hoverBorder: 'hover:border-amber-300',
-    },
-    {
-      category: 'Brainstorming',
-      icon: <Lightbulb className="w-4 h-4 text-purple-600" />,
-      prompt: 'Give me 5 distinctive startup ideas combining AI with local artisanal coffee roasters.',
-      badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
-      hoverBorder: 'hover:border-purple-300',
-    },
-    {
-      category: 'Deep Insight',
-      icon: <Zap className="w-4 h-4 text-rose-600" />,
-      prompt: 'Compare React 19 server components with traditional client rendering. What are the key trade-offs?',
-      badgeColor: 'bg-rose-50 text-rose-700 border-rose-200',
-      hoverBorder: 'hover:border-rose-300',
-    },
-  ];
-
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 max-w-4xl mx-auto w-full">
-      {/* Brand Hero */}
-      <div className="text-center mb-8 sm:mb-10 space-y-3">
-        <div className="relative inline-flex items-center justify-center">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 shadow-xl shadow-indigo-500/25 flex items-center justify-center text-white ring-4 ring-indigo-50">
-            <span className="font-extrabold text-2xl sm:text-3xl tracking-tight">D</span>
-            <Sparkles className="w-5 h-5 absolute -top-1.5 -right-1.5 text-amber-300 animate-pulse" />
+    <div className="flex-1 w-full px-4 py-10 sm:px-8 sm:py-14">
+      <div className="mx-auto flex w-full max-w-5xl flex-col">
+        <section className="mx-auto mb-10 max-w-2xl text-center">
+          <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-500/20">
+            <span className="text-2xl font-black tracking-tight">D</span>
+            <Sparkles className="absolute ml-12 -mt-12 h-4 w-4 text-amber-400" />
           </div>
-        </div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
-          How can <span className="bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">Davis AI</span> help you today?
-        </h1>
-        <p className="text-sm sm:text-base text-slate-500 max-w-xl mx-auto font-normal">
-          An intelligent conversational assistant for coding, writing, research, brainstorming, and everyday problem solving.
-        </p>
-
-        {!hasApiKey && (
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium mt-2">
-            <span>Requires GEMINI_API_KEY</span>
-            <button
-              onClick={onOpenHelp}
-              className="text-indigo-700 underline font-semibold hover:text-indigo-900 cursor-pointer"
-            >
-              Setup Guide →
-            </button>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            Your intelligent learning companion
           </div>
-        )}
-      </div>
-
-      {onOpenImageStudio && (
-        <button
-          onClick={onOpenImageStudio}
-          className="w-full mb-4 p-4 rounded-2xl border border-violet-200 bg-violet-50/70 hover:bg-violet-100/70 hover:border-violet-300 shadow-sm transition-all text-left group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-violet-600 text-white"><Sparkles className="w-5 h-5" /></div>
-            <div className="flex-1">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-violet-700">Image Generation</div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-1">Create images with Davis AI</h2>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1">Generate posters, illustrations, educational visuals and creative images from prompts.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            What would you like to work on?
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-500 sm:text-base">
+            Learn deeply, explore ideas and get useful work done with Davis AI.
+          </p>
+          {!hasApiKey && (
+            <div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-medium text-amber-800">
+              <span>AI connection needs attention.</span>
+              <button onClick={onOpenHelp} className="font-semibold text-indigo-700 underline underline-offset-2 hover:text-indigo-900">
+                View setup guide
+              </button>
             </div>
-            <ArrowRight className="w-5 h-5 text-violet-500 group-hover:translate-x-1 transition-transform shrink-0" />
-          </div>
-        </button>
-      )}
+          )}
+        </section>
 
-      {/* Suggested prompts grid */}
-      {/* Featured coursework template */}
-      {onOpenCourseworkVideo && (
-        <button
-          onClick={onOpenCourseworkVideo}
-          className="w-full mb-4 p-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 hover:border-indigo-300 shadow-sm transition-all text-left group cursor-pointer"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-sm">
-                <Film className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-700">Coursework Template</span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-white border border-indigo-200 text-[10px] font-semibold text-indigo-700">120 sec</span>
-                </div>
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 mt-1">AI & Basic Prompting for ECD Teachers</h2>
-                <p className="text-xs sm:text-sm text-slate-600 mt-1">His Grace Nursery School · Bahai Road, Kampala</p>
-              </div>
-            </div>
-            <ArrowRight className="w-5 h-5 text-indigo-500 group-hover:translate-x-1 transition-transform shrink-0" />
-          </div>
-        </button>
-      )}
-
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {suggestions.map((item, idx) => (
-          <button
-            key={idx}
-            onClick={() => onSelectPrompt(item.prompt)}
-            className={`group text-left p-4 rounded-xl border border-slate-200/90 bg-white hover:bg-slate-50/70 shadow-sm transition-all duration-200 flex flex-col justify-between cursor-pointer ${item.hoverBorder} hover:shadow-md`}
-          >
+        <section>
+          <div className="mb-4 flex items-end justify-between gap-3">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${item.badgeColor}`}>
-                  {item.icon}
-                  {item.category}
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
-              </div>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal group-hover:text-slate-900">
-                "{item.prompt}"
-              </p>
+              <h2 className="text-sm font-semibold text-slate-900">Learning spaces</h2>
+              <p className="mt-1 text-xs text-slate-500">Start with a focused learning area.</p>
             </div>
-            <span className="text-[11px] text-indigo-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity mt-3">
-              Ask Davis AI →
-            </span>
-          </button>
-        ))}
-      </div>
+            <span className="hidden text-[11px] font-medium text-slate-400 sm:inline">Choose a subject to begin</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {studyTools.map((tool) => (
+              <button
+                key={tool.title}
+                onClick={() => onSelectPrompt(tool.prompt)}
+                className={`group flex min-h-28 items-start gap-4 rounded-2xl border border-slate-200/80 bg-gradient-to-br ${tool.tint} p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2`}
+              >
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tool.iconTone}`}>{tool.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900">{tool.title}</span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-indigo-600" />
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-600">{tool.description}</span>
+                  <span className="mt-3 block text-[11px] font-semibold text-indigo-700">Start learning</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
 
-      {/* Capabilities feature footer */}
-      <div className="mt-8 pt-6 border-t border-slate-100 w-full flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
-        <div className="flex items-center gap-1.5">
-          <Film className="w-3.5 h-3.5 text-indigo-500" />
-          <span>AI Video Studio & Voiceover</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Real-time Gemini Streaming</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Code2 className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Formatted Code & Instant Copy</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Secure Server-Side AI Integration</span>
-        </div>
+        <section className="mt-9">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-slate-900">More ways to use Davis AI</h2>
+            <p className="mt-1 text-xs text-slate-500">Research, create and get help with everyday work.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {assistantTools.map((tool) => (
+              <button
+                key={tool.title}
+                onClick={() => onSelectPrompt(tool.prompt)}
+                className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-indigo-200 hover:bg-slate-50"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">{tool.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-slate-800">{tool.title}</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">{tool.description}</span>
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-indigo-600" />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {(onOpenImageStudio || onOpenVideoStudio || onOpenCourseworkVideo) && (
+          <section className="mt-9">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-slate-900">Creative studio</h2>
+              <p className="mt-1 text-xs text-slate-500">Turn ideas into visual and video content.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {onOpenImageStudio && (
+                <button onClick={onOpenImageStudio} className="group flex items-center gap-3 rounded-xl border border-violet-200/80 bg-violet-50/60 p-4 text-left transition-colors hover:border-violet-300 hover:bg-violet-50">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white"><ImageIcon className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-slate-900">Image Studio</span><span className="mt-1 block text-xs text-slate-600">Create illustrations, posters and learning visuals.</span></span>
+                  <ArrowRight className="h-4 w-4 text-violet-500 transition-transform group-hover:translate-x-1" />
+                </button>
+              )}
+              {onOpenVideoStudio && (
+                <button onClick={() => onOpenVideoStudio()} className="group flex items-center gap-3 rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-4 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white"><Film className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-slate-900">Video Studio</span><span className="mt-1 block text-xs text-slate-600">Create narrated videos and explainers.</span></span>
+                  <ArrowRight className="h-4 w-4 text-indigo-500 transition-transform group-hover:translate-x-1" />
+                </button>
+              )}
+              {onOpenCourseworkVideo && (
+                <button onClick={onOpenCourseworkVideo} className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-indigo-200 hover:bg-slate-50 sm:col-span-2">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white"><GraduationCap className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-slate-900">Educational video template</span><span className="mt-1 block text-xs text-slate-500">Start with a guided educational presentation and narration workflow.</span></span>
+                  <ArrowRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-1" />
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-slate-200/70 pt-5 text-[11px] text-slate-400">
+          <span className="inline-flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Gemini-powered assistance</span>
+          <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Server-side API protection</span>
+        </footer>
       </div>
     </div>
   );
