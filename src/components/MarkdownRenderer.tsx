@@ -139,6 +139,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
             );
           }
 
+          case 'image': {
+            const imageToken = token as Tokens.Image;
+            const safeUrl = /^https:\/\//i.test(imageToken.href) ? imageToken.href : '';
+            if (!safeUrl) return null;
+            return (
+              <figure key={index} className="my-4">
+                <img
+                  src={safeUrl}
+                  alt={imageToken.text || 'Educational illustration'}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="max-h-[520px] w-auto max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+                />
+                {imageToken.text && (
+                  <figcaption className="mt-2 text-xs text-slate-500">{imageToken.text}</figcaption>
+                )}
+              </figure>
+            );
+          }
+
           case 'hr':
             return <hr key={index} className="my-4 border-slate-200" />;
 
