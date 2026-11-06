@@ -141,7 +141,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
           case 'image': {
             const imageToken = token as Tokens.Image;
-            const safeUrl = /^https:\/\//i.test(imageToken.href) ? imageToken.href : '';
+            const safeUrl = /^https:\/\//i.test(imageToken.href) || /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(imageToken.href) ? imageToken.href : '';
             if (!safeUrl) return null;
             return (
               <figure key={index} className="my-4">
