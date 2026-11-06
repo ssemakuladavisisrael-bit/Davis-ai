@@ -69,7 +69,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 pb-4 sm:pb-6">
+    <div className="mobile-safe-bottom w-full max-w-3xl mx-auto px-3 sm:px-4 pb-4 sm:pb-6">
       {/* Quick helper tags (visible when textarea is empty) */}
       {!input && !isStreaming && (
         <div className="flex items-center gap-1.5 overflow-x-auto py-1 mb-2 no-scrollbar">
@@ -129,7 +129,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyDown={handleKeyDown}
             disabled={disabled}
             placeholder={isStreaming ? 'Davis AI is thinking...' : 'Message Davis AI... (Press Enter to send)'}
-            className="w-full resize-none bg-transparent py-3.5 pl-4 pr-14 text-sm text-slate-800 placeholder-slate-400 focus:outline-none max-h-44 leading-relaxed"
+            className="w-full resize-none bg-transparent py-3.5 pl-4 pr-14 text-base sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none max-h-44 leading-relaxed"
           />
 
           {/* Action Button: Send or Stop */}
