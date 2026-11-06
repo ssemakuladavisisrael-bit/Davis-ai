@@ -911,51 +911,59 @@ app.post('/api/video/realistic', async (req, res) => {
   }
 });
 
-// Native Gemini image generation (Nano Banana 2)
+// Cloudflare Workers AI image generation (FLUX.1 Schnell).
+// Keep image generation independent from Gemini chat quotas.
 app.post('/api/image/generate', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    res.status(400).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
+  const apiToken = process.env.CLOUDFLARE_API_TOKEN?.trim();
+
+  if (!accountId || !apiToken) {
+    res.status(503).json({
+      error: 'Image generation is not configured yet. Add CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to the Render environment.',
+    });
     return;
   }
 
-  const { prompt, aspectRatio, imageSize } = req.body || {};
-  if (!prompt || typeof prompt !== 'string') {
+  const { prompt } = req.body || {};
+  if (typeof prompt !== 'string' || !prompt.trim()) {
     res.status(400).json({ error: 'Prompt is required for image generation.' });
     return;
   }
-
-  const allowedRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '4:5', '5:4', '21:9'];
-  const allowedSizes = ['1K', '2K', '4K'];
-  const ratio = allowedRatios.includes(aspectRatio) ? aspectRatio : '1:1';
-  const size = allowedSizes.includes(imageSize) ? imageSize : '1K';
+  if (prompt.trim().length > 2048) {
+    res.status(400).json({ error: 'Please keep the image prompt under 2,048 characters.' });
+    return;
+  }
 
   try {
-    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
-    const interaction = await ai.interactions.create({
-      model: 'gemini-3.1-flash-image',
-      input: prompt.trim(),
-      response_format: {
-        type: 'image',
-        mime_type: 'image/jpeg',
-        aspect_ratio: ratio,
-        image_size: size,
+    const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/run/@cf/black-forest-labs/flux-1-schnell`;
+    const upstream = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ prompt: prompt.trim(), steps: 4 }),
     });
 
-    const image = interaction.output_image;
-    if (!image?.data) {
-      throw new Error('The image model returned no image.');
+    const payload: any = await upstream.json().catch(() => null);
+    const image = payload?.result?.image;
+    if (!upstream.ok || payload?.success === false || typeof image !== 'string' || !image) {
+      console.error('Cloudflare image generation failed:', upstream.status, payload?.errors || payload?.messages);
+      const status = upstream.status === 429 ? 429 : (upstream.status === 401 || upstream.status === 403 ? 502 : 502);
+      res.status(status).json({
+        error: upstream.status === 429
+          ? 'Cloudflare Workers AI daily allowance or rate limit has been reached. Please try again later.'
+          : upstream.status === 401 || upstream.status === 403
+            ? 'Cloudflare rejected the API credentials. Check the Workers AI token permissions and Account ID in Render.'
+            : 'Cloudflare could not generate the image. Check the Workers AI configuration and try again.',
+      });
+      return;
     }
 
-    res.json({ image: image.data, mimeType: image.mime_type || 'image/jpeg' });
+    res.json({ image, mimeType: 'image/jpeg', model: '@cf/black-forest-labs/flux-1-schnell', width: 1024, height: 1024 });
   } catch (err: any) {
-    console.error('Image generation error:', err);
-    res.status(500).json({
-      error: err?.message?.includes('quota') || err?.message?.includes('RESOURCE_EXHAUSTED')
-        ? 'Image generation quota is unavailable for this API key. Please check your Gemini API billing/quota.'
-        : err?.message || 'Failed to generate image.',
-    });
+    console.error('Cloudflare image generation error:', err);
+    res.status(502).json({ error: 'Could not reach Cloudflare Workers AI. Please try again.' });
   }
 });
 
