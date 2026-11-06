@@ -80,6 +80,7 @@ export default function App() {
   const [videoStudioConfig, setVideoStudioConfig] = useState<ImportedVideoConfig | undefined>(undefined);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [researchMode, setResearchMode] = useState(false);
+  const [imageSearchMode, setImageSearchMode] = useState(false);
 
   const openECDCourseworkVideo = () => {
     setVideoStudioConfig({
@@ -219,23 +220,61 @@ export default function App() {
     setIsStreaming(false);
   };
 
-  // Build persona-based system instruction
+  // Build a consistent, high-quality instruction set for every conversation.
   const getSystemInstruction = () => {
-    let base = `You are Davis AI, a helpful, intelligent, friendly, and honest conversational assistant.
-Your goal is to help users with learning, coding, writing, brainstorming, and everyday questions.
-Guidelines:
-1. Always format responses with clean Markdown: headers, lists, and code blocks with language tags.
-2. Be honest when you are uncertain about something or when information is speculative.
-3. If asked about your identity, state that you are Davis AI, powered by Google Gemini.`;
+    let base = `You are Davis AI, a capable, thoughtful, honest and warm AI assistant. Your standard is careful, useful work: understand the real request, reason through it, and give the user an answer they can act on.
+
+CORE BEHAVIOUR
+- Answer the actual question first. Do not substitute generic advice, motivational language or an unrelated overview.
+- Match the depth to the request. When asked to teach, explain, analyse, plan or solve something deeply, provide substantial university/professional-level detail rather than a short summary.
+- Think carefully before answering. Check assumptions, calculations, chronology, internal consistency and edge cases. Never invent facts, citations, test results or capabilities.
+- If a critical detail is missing, ask one focused question. Otherwise state reasonable assumptions and proceed.
+- Be candid about uncertainty. Distinguish established facts, likely interpretations and recommendations.
+- Use clear, natural language. Avoid canned openings, theatrical roleplay, repetitive conclusions and unnecessary filler.
+- Use Markdown structure when it improves readability. Use tables only when comparison is genuinely clearer.
+- Preserve context from the conversation. Do not ask the user to repeat information already provided.
+- For multi-step tasks, provide a practical sequence and identify what is completed versus what remains.
+- For current or changing facts, use available research tools when enabled; cite sources and distinguish source evidence from your own explanation.
+- For medical, legal, financial and safety topics, be careful, explain limitations and encourage appropriate professional verification. Never present educational information as a personal diagnosis or guaranteed outcome.
+
+TEACHING AND ACADEMIC MODE
+When the user asks to be taught, act like an excellent university lecturer and tutor, not a summary generator.
+1. Establish learning objectives and briefly connect the topic to prerequisite knowledge.
+2. Define important terminology before relying on it.
+3. Teach concepts in a logical sequence, explaining what happens, where, when, how and why.
+4. Explain mechanisms and cause-and-effect relationships, not just lists of facts.
+5. Use accurate examples, analogies and verbal descriptions of diagrams; label analogies as simplifications where needed.
+6. Connect foundational science to anatomy, physiology, clinical practice and real-world applications where relevant.
+7. Highlight common misconceptions and explain why they are incorrect.
+8. Include a concise recap and meaningful questions to check understanding when appropriate.
+9. For exam preparation, answer the exact question in an appropriate student-level academic style, with enough depth for the marks. Do not drift into unrelated material.
+10. For embryology, explain developmental timing, location, cell/tissue origins, sequential events, resulting structures, adult anatomical relevance and clinically important abnormalities. Be precise about germ-layer derivatives and exceptions.
+11. When asked for study notes, produce organised, copy-ready university notes with learning objectives, key definitions, detailed explanations, headings, examples, clinical relevance, and a final high-yield summary. Do not make notes shallow or padded.
+12. When asked to prepare for an examination, identify the examinable concepts, explain them first, then provide realistic questions and complete model answers matched to the marks. Include short-answer, structured and essay questions where appropriate, and explain why key points earn marks.
+13. Adapt to the learner's stated level. For a first-year nursing student, use clear first-year language while retaining correct scientific terminology and enough depth for university assessment.
+14. VISUAL TEACHING: When a diagram, labelled anatomy, process flow, comparison, or developmental timeline would materially improve understanding, include a clear text-based labelled diagram or Mermaid flowchart in a fenced code block. Explain the diagram below it. Never invent an image URL or pretend a diagram is a real photograph. If the user asks for an actual generated illustration, direct them to the app's image-generation workflow when available.
+15. In a continuing lesson, briefly connect new material to what has already been taught and build progressively. Ask one focused retrieval question at a natural stopping point rather than ending every answer with a long quiz.
+16. INLINE TEACHING ILLUSTRATIONS: For anatomy, physiology, biology, embryology, procedures or other visual learning topics, decide whether one custom illustration would genuinely improve understanding. If it would, finish the response with exactly one image request marker on its own line using this exact format: [[DAVIS_IMAGE: a detailed visual-generation prompt]]. Write a specific, scientifically accurate prompt describing the subject, viewpoint, structures and visual style. Prefer a clean university textbook illustration, clear anatomy, uncluttered composition and no tiny or garbled text. Explain labels and important structures in the surrounding written answer. Do not use the marker for ordinary conversation, text-only exam answers or when an image adds little value. Never invent an image URL.
+
+WRITING AND PROBLEM-SOLVING
+- For writing requests, produce a complete, usable draft in the requested format and tone.
+- For coding, explain the root cause, provide safe and maintainable code, and state how to test it. Do not claim code was run unless it was.
+- For decisions, compare realistic options, trade-offs, risks and a justified recommendation.
+- For calculations, show the formula and key steps, then verify the result.
+
+IDENTITY
+If asked who you are, say you are Davis AI. Do not claim to be Claude, ChatGPT, or another product. You are powered by the AI model configured for this application.`;
 
     if (tone === 'creative') {
-      base += `\nTone adjustment: Be particularly imaginative, expressive, vibrant, and engaging. Offer creative perspectives.`;
+      base += `\nSTYLE: Be imaginative and expressive while keeping facts accurate and the answer useful.`;
     } else if (tone === 'precise') {
-      base += `\nTone adjustment: Be concise, direct, factual, and strictly focused. Avoid unnecessary fluff and get straight to the point.`;
+      base += `\nSTYLE: Be concise and direct, but never omit essential reasoning or safety information.`;
+    } else {
+      base += `\nSTYLE: Be balanced, clear, thoughtful and appropriately detailed.`;
     }
 
     if (customInstruction.trim()) {
-      base += `\nAdditional user instructions: ${customInstruction.trim()}`;
+      base += `\nADDITIONAL USER PREFERENCES: ${customInstruction.trim()}`;
     }
 
     return base;
@@ -302,9 +341,80 @@ Guidelines:
     }
   };
 
+  // Search openly licensed web images and keep source/creator/license labels with every result.
+  const handleImageSearchMessage = async (query: string) => {
+    if (!query.trim() || isStreaming) return;
+
+    let targetConvId = activeId;
+    let targetMessages: Message[] = [];
+    if (!targetConvId || !activeConversation) {
+      const newId = `conv-${Date.now()}`;
+      const newConv: Conversation = { id: newId, title: query.trim().slice(0, 32) + (query.trim().length > 32 ? '...' : ''), createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
+      setConversations((prev) => [newConv, ...prev]);
+      setActiveId(newId);
+      targetConvId = newId;
+    } else {
+      targetMessages = [...activeConversation.messages];
+    }
+
+    const userMessage: Message = { id: `msg-${Date.now()}-user`, role: 'user', content: query.trim(), timestamp: Date.now() };
+    const assistantId = `msg-${Date.now()}-images`;
+    const assistantMessage: Message = { id: assistantId, role: 'assistant', content: 'Searching openly licensed images…', timestamp: Date.now() };
+    setConversations((prev) => prev.map((c) => c.id === targetConvId ? { ...c, messages: [...targetMessages, userMessage, assistantMessage], updatedAt: Date.now() } : c));
+    setInput('');
+    setIsStreaming(true);
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const response = await fetch(apiUrl('/api/images/search'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim() }),
+        signal: abortControllerRef.current.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Image search failed.');
+      const results = Array.isArray(data.results) ? data.results : [];
+      const answer = results.length
+        ? `## Web images for “${query.trim()}”\n\nThese results are retrieved from **Openverse**. Check each image’s license and terms before reusing it. Davis AI does not own these images.\n\n` + results.map((item: any, index: number) => {
+            const safeText = (value: unknown, fallback: string) => typeof value === 'string' && value.trim() ? value.trim().replace(/[\[\]\\]/g, ' ').slice(0, 180) : fallback;
+            const title = safeText(item.title, 'Untitled image');
+            const creator = safeText(item.creator, 'Creator not listed');
+            const license = safeText(item.license, 'License details unavailable');
+            const provider = safeText(item.provider, 'Openverse');
+            const imageUrl = typeof item.imageUrl === 'string' && item.imageUrl.startsWith('https://') ? item.imageUrl : '';
+            const sourceUrl = typeof item.sourceUrl === 'string' && item.sourceUrl.startsWith('https://') ? item.sourceUrl : '';
+            const licenseUrl = typeof item.licenseUrl === 'string' && item.licenseUrl.startsWith('https://') ? item.licenseUrl : '';
+            if (!imageUrl || !sourceUrl) return '';
+            const licenseLabel = item.licenseVersion ? `${license} ${item.licenseVersion}` : license;
+            return `### ${index + 1}. ${title}\n\n![${title} — Creator: ${creator} — License: ${licenseLabel}](${imageUrl})\n\n**Creator:** ${creator} · **Provider:** ${provider} · **License:** ${licenseLabel}\n\n[View original source](${sourceUrl})${licenseUrl ? ` · [View license](${licenseUrl})` : ''}`;
+          }).filter(Boolean).join('\n\n')
+        : `No matching openly licensed images were found for “${query.trim()}”. Try a more specific search phrase.`;
+      setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
+        ...c,
+        messages: c.messages.map((m) => m.id === assistantId ? { ...m, content: answer } : m),
+        updatedAt: Date.now(),
+      } : c));
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
+          ...c,
+          messages: c.messages.map((m) => m.id === assistantId ? { ...m, content: err?.message || 'Image search failed. Please try again.', isError: true } : m),
+        } : c));
+      }
+    } finally {
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+    }
+  };
+
   // Main message send logic
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isStreaming) return;
+    if (imageSearchMode) {
+      await handleImageSearchMessage(textToSend);
+      return;
+    }
     if (researchMode) {
       await handleResearchMessage(textToSend);
       return;
@@ -450,6 +560,50 @@ Guidelines:
             // Non-JSON SSE line or parse error
           }
         }
+      }
+
+      // Generate one relevant inline teaching illustration when Davis AI explicitly requests it.
+      const imageRequestMatch = accumulatedText.match(/\[\[DAVIS_IMAGE:([\s\S]*?)\]\]/);
+      if (imageRequestMatch) {
+        const visualPrompt = imageRequestMatch[1].trim().slice(0, 2048);
+        accumulatedText = accumulatedText.replace(/\s*\[\[DAVIS_IMAGE:[\s\S]*?\]\]/g, '').trim();
+        setConversations((prev) =>
+          prev.map((c) => c.id !== targetConvId ? c : ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantPlaceholderId
+                ? { ...m, content: accumulatedText + "\n\n*Creating your teaching illustration…*" }
+                : m
+            ),
+          }))
+        );
+        try {
+          const imageResponse = await fetch(apiUrl('/api/image/generate'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: "Create a scientifically accurate university-level educational illustration. " + visualPrompt + " Use a clean textbook-quality composition, clear structures, uncluttered background, accurate proportions and no tiny or garbled text. The surrounding lesson provides the labels and explanations.",
+            }),
+            signal: abortControllerRef.current?.signal,
+          });
+          const imageData = await imageResponse.json().catch(() => ({}));
+          if (!imageResponse.ok || typeof imageData.image !== 'string' || !imageData.image) {
+            throw new Error(imageData.error || 'Image generation was unavailable.');
+          }
+          accumulatedText += "\n\n![Educational illustration](data:image/jpeg;base64," + imageData.image + ")";
+        } catch (imageError: any) {
+          if (imageError?.name === 'AbortError') throw imageError;
+          console.warn('Inline teaching illustration unavailable:', imageError);
+          accumulatedText += "\n\n*I could not create the illustration this time, but the written explanation is available above.*";
+        }
+        setConversations((prev) =>
+          prev.map((c) => c.id !== targetConvId ? c : ({
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === assistantPlaceholderId ? { ...m, content: accumulatedText } : m
+            ),
+          }))
+        );
       }
 
       // Final check: if text is empty, display helpful notice
@@ -649,12 +803,22 @@ Guidelines:
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
-              onClick={() => setResearchMode((v) => !v)}
+              onClick={() => { setResearchMode((v) => !v); setImageSearchMode(false); }}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${researchMode ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
               title="Research current information from the web with cited sources"
             >
               <Search className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{researchMode ? 'Research On' : 'Research'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setImageSearchMode((v) => !v); setResearchMode(false); }}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${imageSearchMode ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
+              title="Find openly licensed images on the web with creator and license labels"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{imageSearchMode ? 'Images On' : 'Images'}</span>
             </button>
 
             {/* Quick Model Selector Pill */}
@@ -797,6 +961,12 @@ Guidelines:
           <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
             <Globe2 className="w-4 h-4 shrink-0" />
             <span><strong>Research mode:</strong> Davis AI will use current web information and include source links. Turn it off for normal chat.</span>
+          </div>
+        )}
+        {imageSearchMode && (
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+            <Search className="w-4 h-4 shrink-0" />
+            <span><strong>Web image search:</strong> Find openly licensed images. Results show creator, provider, source and license; check the license before reuse.</span>
           </div>
         )}
 

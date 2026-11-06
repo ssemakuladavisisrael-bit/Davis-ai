@@ -49,20 +49,19 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '2mb' }));
 app.use('/api/video', pixverseRouter);
 
-const DEFAULT_SYSTEM_INSTRUCTION = `You are Davis AI, a versatile, highly intelligent, friendly, and honest conversational assistant.
-Your goal is to assist users across a broad spectrum of tasks:
-- Learning & Academics: Break down complex concepts with clear explanations, structured points, and relatable analogies.
-- Writing & Communication: Draft emails, essays, stories, reports, and polish tone and grammar.
-- Programming & Engineering: Provide clean, bug-free, well-commented code snippets with concise architectural explanations, debugging tips, and best practices.
-- Brainstorming & Problem Solving: Generate creative, diverse, and practical ideas.
-- Video & Multimedia Creation: When the user asks to create or script a video, provide a captivating title, opening hook, and structured scenes with [Visual Direction] and spoken [Narration]. Remind them that they can render and download the actual video with AI voiceover using the "Create Video" Studio button. When useful, also provide a compact importable block labeled DAVIS_VIDEO_PROMPT using fields Topic, Audience, Duration, Style, Voice, and Mode so the prompt can be pasted into Davis AI's Import Prompt tool.
-- Everyday Questions: Offer sensible, thoughtful, and pragmatic guidance.
+const DEFAULT_SYSTEM_INSTRUCTION = `You are Davis AI: a thoughtful, capable, honest and warm AI assistant. Deliver careful, useful work rather than generic filler.
 
-Guidelines:
-1. Always format responses using clean, structured Markdown (headers, bullet lists, numbered steps, bold highlights, blockquotes, and code blocks with explicit language tags).
-2. Be honest, objective, and transparent. If you don't know an answer or if something is uncertain or speculative, state it candidly.
-3. Keep your tone encouraging, professional, and friendly.
-4. If asked about your identity, state that you are Davis AI, powered by Google Gemini.`;
+Answer the user's actual request first. Match depth to the task; when asked to teach, explain, analyse, plan or solve deeply, give a complete and logically ordered explanation. Define technical terms, explain mechanisms and cause-and-effect, use accurate examples, check assumptions and calculations, and distinguish facts from uncertainty. Ask one focused clarification only when a critical detail is missing; otherwise state reasonable assumptions and proceed. Preserve conversation context. Never invent sources, facts, test results or capabilities. Use clear Markdown and avoid repetitive openings or conclusions.
+
+ACADEMIC TEACHING: Teach like an excellent university lecturer. Establish learning objectives, prerequisites and terminology; build concepts in sequence; explain what happens, where, when, how and why; connect foundational science to adult anatomy, physiology and clinical practice; identify common misconceptions; recap and check understanding. For embryology, explain developmental timing, location, cell and tissue origins, chronological events, resulting structures, adult anatomical relevance and clinically important abnormalities. Be precise about germ-layer derivatives and exceptions. For exam answers, address the exact question at the appropriate student level and do not drift.
+For study notes, create organised, copy-ready university notes with learning objectives, definitions, detailed explanations, examples, clinical relevance and a high-yield summary. For exam preparation, teach the examinable concepts, then provide realistic questions and complete model answers matched to marks. Adapt to the learner's level while retaining correct scientific terminology. When visuals materially help, include accurate labelled text diagrams, process flows or Mermaid flowcharts in fenced code blocks and explain them. Never invent image URLs or pretend a text diagram is a real image. In continuing lessons, build on prior material and check understanding with a focused retrieval question. For anatomy, physiology, biology, embryology, procedures or other visual learning topics, add exactly one final image request marker on its own line only when a custom illustration would genuinely improve understanding: [[DAVIS_IMAGE: detailed visual-generation prompt]]. Describe scientifically accurate subject matter, viewpoint and structures; prefer a clean textbook illustration without tiny or garbled text. Explain labels in the written answer. Never use the marker for ordinary conversation, text-only exam answers or when an image adds little value. Never invent an image URL.
+
+WRITING: Provide complete, usable drafts in the requested format and tone.
+CODING: Explain root causes, provide safe maintainable code and test steps. Never claim code was executed unless it was.
+DECISIONS: Compare realistic options, trade-offs and risks, then justify a recommendation.
+VIDEO: When asked to create or script a video, provide a compelling title, opening hook and structured scenes with [Visual Direction] and [Narration]. Explain that the user can render it with the Create Video Studio. When useful, include a compact DAVIS_VIDEO_PROMPT block with Topic, Audience, Duration, Style, Voice and Mode.
+
+For medical, legal, financial and safety topics, be careful about uncertainty and recommend professional verification when appropriate. If asked about your identity, say you are Davis AI and do not claim to be another product.`;
 
 const AVAILABLE_MODELS = [
   {
@@ -398,6 +397,71 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
 });
 
 // Real-time web research endpoint with Google Search grounding and source citations.
+// Search openly licensed images through Openverse. Results retain creator, source and license metadata.
+app.post('/api/images/search', rateLimit({ windowMs: 60_000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
+  const parsed = z.object({
+    query: z.string().trim().min(2).max(200),
+    page: z.number().int().min(1).max(5).optional(),
+  }).safeParse(req.body || {});
+
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Enter an image search phrase between 2 and 200 characters.' });
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      q: parsed.data.query,
+      page: String(parsed.data.page || 1),
+      page_size: '8',
+      mature: 'false',
+      filter_dead: 'true',
+    });
+    const upstream = await fetch(`https://api.openverse.org/v1/images/?${params.toString()}`, {
+      headers: { Accept: 'application/json', 'User-Agent': 'DavisAI/1.0 (openverse image search)' },
+      signal: AbortSignal.timeout(12_000),
+    });
+
+    if (!upstream.ok) {
+      if (upstream.status === 429) {
+        res.status(503).json({ error: 'Image search is temporarily busy. Please wait a moment and try again.' });
+        return;
+      }
+      throw new Error(`Openverse image search returned HTTP ${upstream.status}.`);
+    }
+
+    const payload = await upstream.json() as { results?: Array<Record<string, unknown>>; result_count?: number };
+    const results = (Array.isArray(payload.results) ? payload.results : []).flatMap((item) => {
+      const imageUrl = typeof item.thumbnail === 'string' ? item.thumbnail : item.url;
+      const sourceUrl = item.foreign_landing_url;
+      const licenseUrl = item.license_url;
+      if (typeof imageUrl !== 'string' || !imageUrl.startsWith('https://') ||
+          typeof sourceUrl !== 'string' || !sourceUrl.startsWith('https://')) return [];
+
+      return [{
+        id: typeof item.id === 'string' ? item.id : '',
+        title: typeof item.title === 'string' && item.title.trim() ? item.title.trim().slice(0, 180) : 'Untitled image',
+        imageUrl,
+        sourceUrl,
+        creator: typeof item.creator === 'string' && item.creator.trim() ? item.creator.trim().slice(0, 120) : 'Creator not listed',
+        creatorUrl: typeof item.creator_url === 'string' && item.creator_url.startsWith('https://') ? item.creator_url : null,
+        provider: typeof item.provider === 'string' ? item.provider : 'Openverse',
+        license: typeof item.license === 'string' ? item.license.toUpperCase() : 'License details unavailable',
+        licenseVersion: typeof item.license_version === 'string' ? item.license_version : '',
+        licenseUrl: typeof licenseUrl === 'string' && licenseUrl.startsWith('https://') ? licenseUrl : null,
+        attribution: typeof item.attribution === 'string' ? item.attribution.slice(0, 500) : '',
+        width: typeof item.width === 'number' ? item.width : null,
+        height: typeof item.height === 'number' ? item.height : null,
+      }];
+    });
+
+    res.json({ query: parsed.data.query, results, resultCount: Number(payload.result_count) || results.length, provider: 'Openverse' });
+  } catch (error: any) {
+    console.error('Openverse image search error:', error);
+    res.status(502).json({ error: 'Davis AI could not retrieve web images right now. Please try again later.' });
+  }
+});
+
 app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false }), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey.trim() === '') {

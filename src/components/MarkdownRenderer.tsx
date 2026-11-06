@@ -23,7 +23,15 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
   const renderInline = (rawText: string) => {
     try {
       const parsed = marked.parseInline(rawText);
-      return typeof parsed === 'string' ? parsed : rawText;
+      if (typeof parsed !== 'string') return rawText;
+      // Only allow trusted HTTPS images or generated base64 raster images in chat.
+      return parsed.replace(/<img\b[^>]*>/gi, (tag) => {
+        const srcMatch = tag.match(/\bsrc=(["'])(.*?)\1/i);
+        if (!srcMatch) return '';
+        const src = srcMatch[2];
+        const allowed = /^https:\/\//i.test(src) || /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(src);
+        return allowed ? tag : '';
+      });
     } catch {
       return rawText;
     }
@@ -136,6 +144,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
                   </tbody>
                 </table>
               </div>
+            );
+          }
+
+          case 'image': {
+            const imageToken = token as Tokens.Image;
+            const safeUrl = /^https:\/\//i.test(imageToken.href) || /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(imageToken.href) ? imageToken.href : '';
+            if (!safeUrl) return null;
+            return (
+              <figure key={index} className="my-4">
+                <img
+                  src={safeUrl}
+                  alt={imageToken.text || 'Educational illustration'}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="max-h-[520px] w-auto max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+                />
+                {imageToken.text && (
+                  <figcaption className="mt-2 text-xs text-slate-500">{imageToken.text}</figcaption>
+                )}
+              </figure>
             );
           }
 
