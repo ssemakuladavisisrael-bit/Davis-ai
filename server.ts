@@ -210,7 +210,7 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  const { messages, systemInstruction, temperature, model: requestedModel, reasoningMode } = req.body;
+  const { messages, systemInstruction, temperature, model: requestedModel, reasoningMode, omegaRubric, omegaAnswerKey } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
@@ -247,49 +247,101 @@ app.post('/api/chat', async (req, res) => {
 
   const tryStream = async (modelToUse: string): Promise<boolean> => {
     try {
-      // Davis Verification Harness: draft once, then run an adversarial review pass.
-      // This mode is opt-in so ordinary chats keep their existing speed and cost.
+      // Davis Omega: computational draft, adversarial verification, and independent judging.
+      // Code execution is enabled for numerical work; claims must not imply execution unless
+      // Gemini returns actual code-execution output.
       if (reasoningMode === true) {
         const baseInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+        const omegaRules = `
+DAVIS OMEGA REASONING PROTOCOL
+For decision, probability, quantitative, scientific, or optimization problems:
+1. Extract variables, assumptions, constraints, candidate actions, and missing information.
+2. Use the code_execution tool for non-trivial arithmetic, probability calculations, optimization,
+   sensitivity analysis, and tables. Never claim code was run unless an execution result exists.
+3. Derive every relevant break-even threshold by equating the competing actions' expected losses.
+   Show the equation and verify the threshold numerically.
+4. Compare all actions over the full plausible probability range and across explicitly stated
+   dependency / uncertainty scenarios. Do not assume independence without justification.
+5. Separate expected-loss optimality, minimax, minimax-regret, and robust recommendations.
+   Use those labels only after calculating the corresponding comparisons.
+6. Do not invent missing probabilities, costs, mortality estimates, or evidence. Use symbolic
+   expressions or clearly labelled illustrative assumptions when inputs are missing.
+7. State which missing information could change the decision and give conditional recommendations.
+8. Present a concise calculation trail, decision table, uncertainty limits, and calibrated conclusion.
+`;
         const draftResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: formattedContents,
           config: {
-            systemInstruction: `${baseInstruction}
-
-REASONING HARNESS — DRAFT PASS
-Solve the user's problem carefully. Identify assumptions, distinguish facts from estimates,
-and do not invent evidence. For calculations, show the formula and intermediate values.`,
-            temperature: typeof temperature === 'number' ? Math.min(temperature, 0.4) : 0.3,
+            systemInstruction: `${baseInstruction}\n\n${omegaRules}\n\nDRAFT PASS: Solve the problem and include auditable calculations.`,
+            tools: [{ codeExecution: {} }],
+            temperature: typeof temperature === 'number' ? Math.min(temperature, 0.2) : 0.2,
           },
         });
         const draft = (draftResponse.text || '').trim();
-        if (!draft) throw new Error('The reasoning draft was empty.');
+        if (!draft) throw new Error('The Omega reasoning draft was empty.');
 
-        const reviewContents = [
-          ...formattedContents,
-          { role: 'model' as const, parts: [{ text: draft }] },
-          { role: 'user' as const, parts: [{ text: `ADVERSARIAL VERIFICATION PASS
-
-Review the draft above against the original question. Act as an independent, skeptical examiner.
-Look for unsupported assumptions, arithmetic or logical errors, missing cases, contradictions,
-and unjustified confidence. Recalculate any important numerical result independently.
-Then provide the corrected final answer only. Preserve correct work; do not invent sources or
-claim that code was executed. If the problem is underdetermined, explain why.` }] },
-        ];
-
-        const reviewedResponse = await ai.models.generateContent({
+        const reviewResponse = await ai.models.generateContent({
           model: modelToUse,
-          contents: reviewContents,
+          contents: [
+            ...formattedContents,
+            { role: 'model' as const, parts: [{ text: draft }] },
+            { role: 'user' as const, parts: [{ text: `INDEPENDENT ADVERSARIAL VERIFICATION
+Re-solve the original problem. Use code_execution for calculations. Check arithmetic, likelihood
+ratios, conditional probabilities, sampling/selection mechanisms, all break-even thresholds,
+expected losses, worst-case losses, maximum regret, and whether the recommendation follows.
+Check whether every claimed minimax/robust/optimal label is demonstrated. Identify missing inputs
+without inventing them. Return a corrected complete answer. Do not claim code ran without execution.` }] },
+          ],
           config: {
-            systemInstruction: `${baseInstruction}
-
-You are Davis AI's independent verification reviewer. Be rigorous, skeptical, and transparent.`,
-            temperature: 0.2,
+            systemInstruction: `${baseInstruction}\n\n${omegaRules}\n\nYou are the independent skeptical verifier for Davis AI Omega.`,
+            tools: [{ codeExecution: {} }],
+            temperature: 0.1,
           },
         });
-        const finalText = (reviewedResponse.text || '').trim() || draft;
-        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 2 } })}\n\n`);
+        const reviewed = (reviewResponse.text || '').trim() || draft;
+
+        // A third, separate model call scores the answer. An optional caller-supplied
+        // rubric and answer key allow exact benchmark grading rather than generic scoring.
+        const rubricText = typeof omegaRubric === 'string' && omegaRubric.trim()
+          ? omegaRubric.trim()
+          : 'Score: mathematical correctness; explicit derivation of decision thresholds; coverage of all actions; dependency and selection-bias treatment; scenario/sensitivity analysis; valid use of decision-theory labels; transparent assumptions; justified conclusion and calibrated confidence.';
+        const answerKeyText = typeof omegaAnswerKey === 'string' && omegaAnswerKey.trim()
+          ? omegaAnswerKey.trim()
+          : 'No authoritative answer key supplied. Do not invent one; grade only what can be verified from the problem and answer.';
+        const judgeResponse = await ai.models.generateContent({
+          model: modelToUse,
+          contents: [
+            ...formattedContents,
+            { role: 'model' as const, parts: [{ text: reviewed }] },
+            { role: 'user' as const, parts: [{ text: `DAVIS OMEGA INDEPENDENT JUDGE
+Grade the preceding answer against the original problem.
+RUBRIC: ${rubricText}
+ANSWER KEY (if supplied): ${answerKeyText}
+Return strict JSON only:
+{"score":0-10,"verdict":"...","strengths":["..."],"errors":["..."],"missing":["..."],"thresholds_verified":true|false,"calculations_verified":true|false,"unsupported_labels":["..."],"decision_supported":true|false}
+Do not award points for style when the mathematics is wrong. If no answer key is supplied, say so in verdict. Never fabricate verification.` }] },
+          ],
+          config: {
+            systemInstruction: 'You are an independent examiner. Be strict, evidence-based, and do not flatter.',
+            temperature: 0.0,
+            responseMimeType: 'application/json',
+          },
+        });
+        const judgeText = (judgeResponse.text || '').trim();
+        let judge: any;
+        try { judge = JSON.parse(judgeText); } catch { judge = null; }
+        const finalText = judge
+          ? reviewed + '\n\n---\n### Davis Omega independent assessment\n' +
+            '**Score:** ' + String(judge.score) + '/10\n' +
+            '**Verdict:** ' + String(judge.verdict || 'No verdict supplied') + '\n' +
+            (Array.isArray(judge.errors) && judge.errors.length ? '**Errors:**\n' + judge.errors.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
+            (Array.isArray(judge.missing) && judge.missing.length ? '**Missing:**\n' + judge.missing.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
+            '**Thresholds verified:** ' + String(judge.thresholds_verified) + '  \n' +
+            '**Calculations verified:** ' + String(judge.calculations_verified) + '  \n' +
+            '**Decision supported:** ' + String(judge.decision_supported)
+          : reviewed + '\n\n---\n*Davis Omega judge could not return valid structured scoring; answer is not scored.*';
+        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 3, omega: true, judgeIncluded: Boolean(judge) } })}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
         streamedAnyChunk = true;
