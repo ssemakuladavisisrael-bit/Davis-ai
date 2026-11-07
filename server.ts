@@ -247,101 +247,145 @@ app.post('/api/chat', async (req, res) => {
 
   const tryStream = async (modelToUse: string): Promise<boolean> => {
     try {
-      // Davis Omega: computational draft, adversarial verification, and independent judging.
-      // Code execution is enabled for numerical work; claims must not imply execution unless
-      // Gemini returns actual code-execution output.
+      // Davis Universal Pipeline + Omega: classify, plan, solve independently, compare,
+      // critique/revise, then score. Model-generated code is executed only by Gemini's
+      // managed codeExecution tool; this server never runs arbitrary generated Python.
       if (reasoningMode === true) {
         const baseInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
-        const omegaRules = `
-DAVIS OMEGA REASONING PROTOCOL
-For decision, probability, quantitative, scientific, or optimization problems:
-1. Extract variables, assumptions, constraints, candidate actions, and missing information.
-2. Use the code_execution tool for non-trivial arithmetic, probability calculations, optimization,
-   sensitivity analysis, and tables. Never claim code was run unless an execution result exists.
-3. Derive every relevant break-even threshold by equating the competing actions' expected losses.
-   Show the equation and verify the threshold numerically.
-4. Compare all actions over the full plausible probability range and across explicitly stated
-   dependency / uncertainty scenarios. Do not assume independence without justification.
-5. Separate expected-loss optimality, minimax, minimax-regret, and robust recommendations.
-   Use those labels only after calculating the corresponding comparisons.
-6. Do not invent missing probabilities, costs, mortality estimates, or evidence. Use symbolic
-   expressions or clearly labelled illustrative assumptions when inputs are missing.
-7. State which missing information could change the decision and give conditional recommendations.
-8. Present a concise calculation trail, decision table, uncertainty limits, and calibrated conclusion.
-`;
-        const draftResponse = await ai.models.generateContent({
+        const plannerResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: formattedContents,
           config: {
-            systemInstruction: `${baseInstruction}\n\n${omegaRules}\n\nDRAFT PASS: Solve the problem and include auditable calculations.`,
-            tools: [{ codeExecution: {} }],
-            temperature: typeof temperature === 'number' ? Math.min(temperature, 0.2) : 0.2,
+            systemInstruction: baseInstruction + "\n\nUNIVERSAL PLANNER: Classify the user's task and create a task-specific solution plan. Return strict JSON only with keys: task_type (math|code|fact|writing|decision|science|other), plan (string), rubric (array of 5-8 concrete grading criteria), failure_modes (array), missing_information (array), needs_web_search (boolean), search_query (string). Search only when facts are current, time-sensitive, or materially uncertain. Do not solve the task yet.",
+            temperature: 0.1,
+            responseMimeType: 'application/json',
           },
         });
-        const draft = (draftResponse.text || '').trim();
-        if (!draft) throw new Error('The Omega reasoning draft was empty.');
+        const plannerText = (plannerResponse.text || '').trim();
+        let plan: any = null;
+        try { plan = JSON.parse(plannerText); } catch {
+          const first = plannerText.indexOf('{');
+          const last = plannerText.lastIndexOf('}');
+          if (first >= 0 && last > first) {
+            try { plan = JSON.parse(plannerText.slice(first, last + 1)); } catch {}
+          }
+        }
+        if (!plan || typeof plan !== 'object') {
+          plan = {
+            task_type: 'other',
+            plan: 'Identify the task requirements, solve carefully, verify important claims, and state uncertainty.',
+            rubric: ['Correctness', 'Completeness', 'Evidence and calculations', 'Clear assumptions', 'Calibrated conclusion'],
+            failure_modes: ['Invented facts', 'Unsupported certainty', 'Missing assumptions'],
+            missing_information: [],
+            needs_web_search: false,
+          };
+        }
 
-        const reviewResponse = await ai.models.generateContent({
+        let webContext = '';
+        if (plan.needs_web_search === true) {
+          try {
+            const searchInput = typeof plan.search_query === 'string' && plan.search_query.trim()
+              ? plan.search_query.trim()
+              : formattedContents.map((item) => item.parts.map((part) => part.text).join('\n')).join('\n');
+            const searchResult = await ai.interactions.create({
+              model: modelToUse,
+              input: 'Find current, reliable information relevant to this task. Summarize evidence and include source URLs where available. Query: ' + searchInput,
+              tools: [{ type: 'google_search' }],
+            });
+            webContext = typeof searchResult.output_text === 'string' ? searchResult.output_text : '';
+          } catch (searchError: any) {
+            console.warn('Universal pipeline web search unavailable:', searchError?.message || searchError);
+            webContext = 'Web search was requested but unavailable. Do not invent current facts; state this limitation.';
+          }
+        }
+
+        const planContext = 'UNIVERSAL PIPELINE PLAN\nTask type: ' + String(plan.task_type || 'other') +
+          '\nPlan: ' + String(plan.plan || '') +
+          '\nTask-specific rubric: ' + JSON.stringify(Array.isArray(plan.rubric) ? plan.rubric : []) +
+          '\nKnown missing information: ' + JSON.stringify(Array.isArray(plan.missing_information) ? plan.missing_information : []) +
+          (webContext ? '\nWEB RESEARCH CONTEXT (check source quality and dates):\n' + webContext : '');
+
+        const solveIndependently = async (temperatureValue: number, solverLabel: string): Promise<string> => {
+          const result = await ai.models.generateContent({
+            model: modelToUse,
+            contents: [
+              ...formattedContents,
+              { role: 'user' as const, parts: [{ text: planContext + '\n\nSolve independently. You have not seen another candidate answer. ' + solverLabel }] },
+            ],
+            config: {
+              systemInstruction: baseInstruction + '\n\nDAVIS UNIVERSAL SOLVER: Solve the user task using the supplied plan. For non-trivial arithmetic, probability, data transformation, or quantitative checks, use the managed codeExecution tool and show the relevant calculation trail. For current claims, use only supplied search evidence and disclose gaps. Never invent facts, probabilities, sources, or test results. Distinguish assumptions from known information. If the task is underdetermined, explain why and give conditional outcomes.',
+              tools: [{ codeExecution: {} }],
+              temperature: temperatureValue,
+            },
+          });
+          return (result.text || '').trim();
+        };
+
+        const candidates = await Promise.all([
+          solveIndependently(0.15, 'Candidate A: prioritize rigorous correctness and explicit assumptions.'),
+          solveIndependently(0.35, 'Candidate B: independently explore alternative interpretations, edge cases, and failure modes.'),
+        ]);
+        const usableCandidates = candidates.filter((candidate) => candidate.length > 0);
+        if (usableCandidates.length === 0) throw new Error('Universal reasoning produced no solution candidates.');
+
+        const reviewedResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: [
             ...formattedContents,
-            { role: 'model' as const, parts: [{ text: draft }] },
-            { role: 'user' as const, parts: [{ text: `INDEPENDENT ADVERSARIAL VERIFICATION
-Re-solve the original problem. Use code_execution for calculations. Check arithmetic, likelihood
-ratios, conditional probabilities, sampling/selection mechanisms, all break-even thresholds,
-expected losses, worst-case losses, maximum regret, and whether the recommendation follows.
-Check whether every claimed minimax/robust/optimal label is demonstrated. Identify missing inputs
-without inventing them. Return a corrected complete answer. Do not claim code ran without execution.` }] },
+            { role: 'user' as const, parts: [{ text: planContext +
+              '\n\nINDEPENDENT CANDIDATE A:\n' + (candidates[0] || '(empty)') +
+              '\n\nINDEPENDENT CANDIDATE B:\n' + (candidates[1] || '(empty)') +
+              '\n\nNow compare the candidates. Identify genuine agreement and disagreement; do not treat agreement as proof. Critique both against the task-specific rubric, resolve errors, and produce one corrected final answer. Re-run important calculations with codeExecution. For decision problems, calculate break-even thresholds and compare expected loss, worst case, and regret only when the inputs permit. For writing tasks, preserve the requested purpose and voice. For factual tasks, separate verified facts from uncertainty. Do not expose hidden chain-of-thought; provide a concise, auditable explanation of methods, evidence, assumptions, and conclusions.' }] },
           ],
           config: {
-            systemInstruction: `${baseInstruction}\n\n${omegaRules}\n\nYou are the independent skeptical verifier for Davis AI Omega.`,
+            systemInstruction: baseInstruction + '\n\nDAVIS OMEGA CRITIC AND REVISION PASS: Be skeptical, task-aware, and evidence-based. Correct the candidates rather than merely blending them.',
             tools: [{ codeExecution: {} }],
             temperature: 0.1,
           },
         });
-        const reviewed = (reviewResponse.text || '').trim() || draft;
+        const reviewed = (reviewedResponse.text || '').trim();
+        if (!reviewed) throw new Error('Universal critique and revision pass returned an empty answer.');
 
-        // A third, separate model call scores the answer. An optional caller-supplied
-        // rubric and answer key allow exact benchmark grading rather than generic scoring.
         const rubricText = typeof omegaRubric === 'string' && omegaRubric.trim()
           ? omegaRubric.trim()
-          : 'Score: mathematical correctness; explicit derivation of decision thresholds; coverage of all actions; dependency and selection-bias treatment; scenario/sensitivity analysis; valid use of decision-theory labels; transparent assumptions; justified conclusion and calibrated confidence.';
+          : JSON.stringify(Array.isArray(plan.rubric) ? plan.rubric : [
+              'Correctness', 'Completeness', 'Evidence and calculations', 'Clear assumptions', 'Calibrated conclusion',
+            ]);
         const answerKeyText = typeof omegaAnswerKey === 'string' && omegaAnswerKey.trim()
           ? omegaAnswerKey.trim()
-          : 'No authoritative answer key supplied. Do not invent one; grade only what can be verified from the problem and answer.';
+          : 'No authoritative answer key supplied. Do not invent one; grade only what can be verified.';
         const judgeResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: [
             ...formattedContents,
             { role: 'model' as const, parts: [{ text: reviewed }] },
-            { role: 'user' as const, parts: [{ text: `DAVIS OMEGA INDEPENDENT JUDGE
-Grade the preceding answer against the original problem.
-RUBRIC: ${rubricText}
-ANSWER KEY (if supplied): ${answerKeyText}
-Return strict JSON only:
-{"score":0-10,"verdict":"...","strengths":["..."],"errors":["..."],"missing":["..."],"thresholds_verified":true|false,"calculations_verified":true|false,"unsupported_labels":["..."],"decision_supported":true|false}
-Do not award points for style when the mathematics is wrong. If no answer key is supplied, say so in verdict. Never fabricate verification.` }] },
+            { role: 'user' as const, parts: [{ text: 'DAVIS OMEGA INDEPENDENT JUDGE\nTask-specific rubric: ' + rubricText +
+              '\nAnswer key: ' + answerKeyText +
+              '\nCandidate agreement: ' + (candidates.length === 2 && candidates[0] && candidates[1] ? 'Two independent candidates were generated; assess whether they materially agree.' : 'Only one usable candidate was generated.') +
+              '\nReturn strict JSON only: {"score":0-10,"verdict":"...","strengths":["..."],"errors":["..."],"missing":["..."],"confidence":0-1,"abstain":true|false,"agreement":"...","calculations_verified":true|false,"decision_supported":true|false}. Grade the corrected answer, not its style. If it cannot be verified, lower confidence and recommend abstention or conditional conclusions. Never claim independent verification proves correctness.' }] },
           ],
           config: {
-            systemInstruction: 'You are an independent examiner. Be strict, evidence-based, and do not flatter.',
+            systemInstruction: 'You are an independent examiner. Be strict, task-specific, evidence-based, and calibrated.',
             temperature: 0.0,
             responseMimeType: 'application/json',
           },
         });
         const judgeText = (judgeResponse.text || '').trim();
-        let judge: any;
-        try { judge = JSON.parse(judgeText); } catch { judge = null; }
+        let judge: any = null;
+        try { judge = JSON.parse(judgeText); } catch {}
         const finalText = judge
           ? reviewed + '\n\n---\n### Davis Omega independent assessment\n' +
             '**Score:** ' + String(judge.score) + '/10\n' +
             '**Verdict:** ' + String(judge.verdict || 'No verdict supplied') + '\n' +
-            (Array.isArray(judge.errors) && judge.errors.length ? '**Errors:**\n' + judge.errors.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
-            (Array.isArray(judge.missing) && judge.missing.length ? '**Missing:**\n' + judge.missing.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
-            '**Thresholds verified:** ' + String(judge.thresholds_verified) + '  \n' +
+            (Array.isArray(judge.errors) && judge.errors.length ? '**Issues identified:**\n' + judge.errors.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
+            (Array.isArray(judge.missing) && judge.missing.length ? '**Missing information:**\n' + judge.missing.map((x: string) => '- ' + x).join('\n') + '\n' : '') +
+            '**Confidence:** ' + String(judge.confidence ?? 'not supplied') + '  \n' +
+            '**Independent candidate agreement:** ' + String(judge.agreement || 'not reported') + '  \n' +
             '**Calculations verified:** ' + String(judge.calculations_verified) + '  \n' +
-            '**Decision supported:** ' + String(judge.decision_supported)
-          : reviewed + '\n\n---\n*Davis Omega judge could not return valid structured scoring; answer is not scored.*';
-        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 3, omega: true, judgeIncluded: Boolean(judge) } })}\n\n`);
+            '**Decision supported:** ' + String(judge.decision_supported) +
+            (judge.abstain === true ? '\n\n**Caution:** The judge recommends abstaining from a definitive conclusion.' : '')
+          : reviewed + '\n\n---\n*Davis Omega judge could not return valid structured scoring; the answer is not independently scored.*';
+        res.write('data: ' + JSON.stringify({ text: finalText, verification: { enabled: true, passes: 5, omega: true, universalPipeline: true, judgeIncluded: Boolean(judge), webSearchAttempted: plan.needs_web_search === true } }) + '\n\n');
         res.write('data: [DONE]\n\n');
         res.end();
         streamedAnyChunk = true;
