@@ -511,6 +511,25 @@ app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeade
     res.json({ text, sources: sources.slice(0, 12), model: 'gemini-3.8-flash', grounded: true });
   } catch (error: any) {
     console.error('Research error:', error);
+
+    // Google Search grounding can have a separate quota from ordinary Gemini chat.
+    // Return a clear, actionable response instead of disguising quota exhaustion as HTTP 500.
+    const errorMessage = String(error?.message || error || '');
+    const quotaExceeded =
+      error?.status === 429 ||
+      error?.code === 'too_many_requests' ||
+      /RESOURCE_EXHAUSTED|quota exceeded|too many requests/i.test(errorMessage);
+
+    if (quotaExceeded) {
+      res.setHeader('Retry-After', '30');
+      res.status(429).json({
+        code: 'RESEARCH_QUOTA_EXCEEDED',
+        retryable: true,
+        error: 'Davis AI live research has temporarily reached the Google Gemini Search quota. Ordinary chat may still be available. Please try live research again later; no information has been verified from the live web for this request.',
+      });
+      return;
+    }
+
     res.status(500).json({ error: formatGeminiError(error) });
   }
 });
