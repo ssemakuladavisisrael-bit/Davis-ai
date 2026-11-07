@@ -284,8 +284,8 @@ You are Davis AI's independent verification reviewer. Be rigorous, skeptical, an
           },
         });
         const finalText = (reviewedResponse.text || '').trim() || draft;
-        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 2 } })}\\n\\n`);
-        res.write('data: [DONE]\\n\\n');
+        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 2 } })}\n\n`);
+        res.write('data: [DONE]\n\n');
         res.end();
         streamedAnyChunk = true;
         return true;
