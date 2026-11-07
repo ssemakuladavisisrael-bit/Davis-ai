@@ -5,7 +5,7 @@ import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { writeFile, unlink } from 'fs/promises';
+import { writeFile, unlink, readFile } from 'fs/promises';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
 import { pixverseRouter } from './pixverse';
 
@@ -139,6 +139,56 @@ function formatContentsForGemini(rawMessages: Array<{ role: string; content: str
   return sanitized;
 }
 
+// Retrieve relevant entries from Davis AI's curated, version-controlled knowledge library.
+// This first version uses lightweight keyword ranking (no embedding API or extra paid service).
+async function retrieveKnowledgeContext(messages: Array<{ role: string; content: string }>): Promise<string> {
+  try {
+    const latestQuestion = [...messages].reverse().find((message) =>
+      message?.role !== 'assistant' && typeof message?.content === 'string' && message.content.trim()
+    )?.content || '';
+    const queryTokens = [...new Set(
+      latestQuestion.toLowerCase().match(/[a-z0-9]{3,}/g) || []
+    )].filter((token) => !new Set([
+      'the', 'and', 'for', 'with', 'that', 'this', 'what', 'when', 'where',
+      'which', 'how', 'can', 'could', 'would', 'should', 'please', 'help',
+      'about', 'from', 'into', 'your', 'you', 'are', 'was', 'were'
+    ]).has(token));
+
+    if (queryTokens.length === 0) return '';
+
+    const libraryPath = path.join(__dirname, 'knowledge', 'library.json');
+    const library = JSON.parse(await readFile(libraryPath, 'utf8'));
+    const documents = Array.isArray(library.documents) ? library.documents : [];
+
+    const ranked = documents.map((doc: any) => {
+      const keywords = Array.isArray(doc.keywords) ? doc.keywords.map((word: string) => String(word).toLowerCase()) : [];
+      const searchable = `${doc.title || ''} ${doc.category || ''} ${doc.content || ''} ${keywords.join(' ')}`.toLowerCase();
+      const keywordScore = keywords.reduce((score: number, keyword: string) =>
+        score + (queryTokens.some((token) => keyword.includes(token) || token.includes(keyword)) ? 4 : 0), 0);
+      const contentScore = queryTokens.reduce((score, token) =>
+        score + (searchable.includes(token) ? 1 : 0), 0);
+      return { doc, score: keywordScore + contentScore };
+    }).filter((item: any) => item.score > 0)
+      .sort((a: any, b: any) => b.score - a.score)
+      .slice(0, 3);
+
+    if (ranked.length === 0) return '';
+
+    const entries = ranked.map(({ doc }: any, index: number) => {
+      const sources = Array.isArray(doc.sources) ? doc.sources : [];
+      const sourceLines = sources.map((source: any, sourceIndex: number) =>
+        `[K${index + 1}]${sourceIndex ? ` (additional reference)` : ''} ${source.label}: ${source.url}`
+      ).join('\n');
+      return `[K${index + 1}] ${doc.title} (category: ${doc.category})\n${doc.content}\nReferences:\n${sourceLines}`;
+    }).join('\n\n');
+
+    return `\n\nRELEVANT DAVIS AI KNOWLEDGE LIBRARY MATERIALS\nUse these curated notes only when relevant. They are reference summaries, not exhaustive textbooks and not automatically current regulatory or clinical guidance. Do not treat a source link as proof that you opened or checked the live page. Cite supporting library material using its exact [K#] marker and source URL. For current, changing or high-stakes information, verify against the live authoritative source; if live verification is unavailable, say so. The user's question and safety requirements take priority over this reference material.\n\n${entries}`;
+  } catch (error: any) {
+    console.warn('Davis AI knowledge library could not be loaded:', error?.message || error);
+    return '';
+  }
+}
+
 // Health and configuration check
 app.get('/api/health', (req, res) => {
   const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
@@ -238,6 +288,8 @@ app.post('/api/chat', chatRateLimit, async (req, res) => {
   }
 
   const { messages, systemInstruction, temperature, model: requestedModel } = req.body;
+  const knowledgeContext = await retrieveKnowledgeContext(messages);
+  const effectiveSystemInstruction = (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) + knowledgeContext;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
@@ -278,7 +330,7 @@ app.post('/api/chat', chatRateLimit, async (req, res) => {
         model: modelToUse,
         contents: formattedContents,
         config: {
-          systemInstruction: systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+          systemInstruction: effectiveSystemInstruction,
           temperature: typeof temperature === 'number' ? temperature : 0.7,
         },
       });
@@ -345,6 +397,8 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
   }
 
   const { messages, systemInstruction, temperature, model: requestedModel } = req.body;
+  const knowledgeContext = await retrieveKnowledgeContext(messages);
+  const effectiveSystemInstruction = (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) + knowledgeContext;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required.' });
@@ -377,7 +431,7 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
         model: primaryModel,
         contents: formattedContents,
         config: {
-          systemInstruction: systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+          systemInstruction: effectiveSystemInstruction,
           temperature: typeof temperature === 'number' ? temperature : 0.7,
         },
       });
@@ -387,7 +441,7 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
         model: fallbackModel,
         contents: formattedContents,
         config: {
-          systemInstruction: systemInstruction || DEFAULT_SYSTEM_INSTRUCTION,
+          systemInstruction: effectiveSystemInstruction,
           temperature: typeof temperature === 'number' ? temperature : 0.7,
         },
       });
@@ -511,6 +565,25 @@ app.post('/api/research', rateLimit({ windowMs: 60_000, limit: 10, standardHeade
     res.json({ text, sources: sources.slice(0, 12), model: 'gemini-3.8-flash', grounded: true });
   } catch (error: any) {
     console.error('Research error:', error);
+
+    // Google Search grounding can have a separate quota from ordinary Gemini chat.
+    // Return a clear, actionable response instead of disguising quota exhaustion as HTTP 500.
+    const errorMessage = String(error?.message || error || '');
+    const quotaExceeded =
+      error?.status === 429 ||
+      error?.code === 'too_many_requests' ||
+      /RESOURCE_EXHAUSTED|quota exceeded|too many requests/i.test(errorMessage);
+
+    if (quotaExceeded) {
+      res.setHeader('Retry-After', '30');
+      res.status(429).json({
+        code: 'RESEARCH_QUOTA_EXCEEDED',
+        retryable: true,
+        error: 'Davis AI live research has temporarily reached the Google Gemini Search quota. Ordinary chat may still be available. Please try live research again later; no information has been verified from the live web for this request.',
+      });
+      return;
+    }
+
     res.status(500).json({ error: formatGeminiError(error) });
   }
 });
