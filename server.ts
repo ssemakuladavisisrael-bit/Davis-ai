@@ -205,7 +205,7 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  const { messages, systemInstruction, temperature, model: requestedModel } = req.body;
+  const { messages, systemInstruction, temperature, model: requestedModel, reasoningMode } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
@@ -242,6 +242,55 @@ app.post('/api/chat', async (req, res) => {
 
   const tryStream = async (modelToUse: string): Promise<boolean> => {
     try {
+      // Davis Verification Harness: draft once, then run an adversarial review pass.
+      // This mode is opt-in so ordinary chats keep their existing speed and cost.
+      if (reasoningMode === true) {
+        const baseInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+        const draftResponse = await ai.models.generateContent({
+          model: modelToUse,
+          contents: formattedContents,
+          config: {
+            systemInstruction: `${baseInstruction}
+
+REASONING HARNESS — DRAFT PASS
+Solve the user's problem carefully. Identify assumptions, distinguish facts from estimates,
+and do not invent evidence. For calculations, show the formula and intermediate values.`,
+            temperature: typeof temperature === 'number' ? Math.min(temperature, 0.4) : 0.3,
+          },
+        });
+        const draft = (draftResponse.text || '').trim();
+        if (!draft) throw new Error('The reasoning draft was empty.');
+
+        const reviewContents = [
+          ...formattedContents,
+          { role: 'model' as const, parts: [{ text: draft }] },
+          { role: 'user' as const, parts: [{ text: `ADVERSARIAL VERIFICATION PASS
+
+Review the draft above against the original question. Act as an independent, skeptical examiner.
+Look for unsupported assumptions, arithmetic or logical errors, missing cases, contradictions,
+and unjustified confidence. Recalculate any important numerical result independently.
+Then provide the corrected final answer only. Preserve correct work; do not invent sources or
+claim that code was executed. If the problem is underdetermined, explain why.` }] },
+        ];
+
+        const reviewedResponse = await ai.models.generateContent({
+          model: modelToUse,
+          contents: reviewContents,
+          config: {
+            systemInstruction: `${baseInstruction}
+
+You are Davis AI's independent verification reviewer. Be rigorous, skeptical, and transparent.`,
+            temperature: 0.2,
+          },
+        });
+        const finalText = (reviewedResponse.text || '').trim() || draft;
+        res.write(`data: ${JSON.stringify({ text: finalText, verification: { enabled: true, passes: 2 } })}\\n\\n`);
+        res.write('data: [DONE]\\n\\n');
+        res.end();
+        streamedAnyChunk = true;
+        return true;
+      }
+
       const responseStream = await ai.models.generateContentStream({
         model: modelToUse,
         contents: formattedContents,
