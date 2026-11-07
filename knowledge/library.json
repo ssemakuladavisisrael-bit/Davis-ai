@@ -1,191 +1,142 @@
 {
-  "version": 1,
-  "description": "Curated starter reference library for Davis AI. Each entry is a concise original summary with authoritative further-reading links. Verify time-sensitive claims against live official sources.",
+  "version": 2,
+  "description": "Broad, cross-disciplinary starter reference library for Davis AI. It is designed for general-purpose assistance across education, science, technology, business, society, creativity and everyday tasks. Health and nursing are only two subject areas among many. Entries are concise original summaries with authoritative further-reading links; verify time-sensitive claims against current primary sources.",
   "documents": [
     {
       "id": "academic-anatomy-physiology",
-      "category": "academic",
+      "category": "health-science",
       "title": "Human Anatomy and Physiology Foundations",
-      "keywords": [
-        "anatomy",
-        "physiology",
-        "cells",
-        "tissues",
-        "organs",
-        "body systems",
-        "homeostasis",
-        "nursing",
-        "human body",
-        "histology"
-      ],
+      "keywords": ["anatomy", "physiology", "cells", "tissues", "organs", "body systems", "homeostasis", "nursing", "human body", "histology"],
       "content": "Anatomy studies body structures and their relationships; physiology studies how those structures function. Structure and function are interdependent. The body is organised from chemical level to organelles, cells, tissues, organs, organ systems and the whole organism. The four primary tissue classes are epithelial, connective, muscle and nervous tissue. Homeostasis is the regulation of internal conditions within ranges compatible with life, commonly through negative-feedback loops involving a receptor, control centre and effector. Positive feedback amplifies a process until a defined endpoint, such as labour contractions. When teaching a body system, connect gross anatomy, microscopic structure, normal function, regulation and clinical relevance. These notes are an introductory map, not a substitute for a complete textbook or local course syllabus.",
-      "sources": [
-        {
-          "label": "OpenStax Anatomy & Physiology 2e",
-          "url": "https://openstax.org/subjects/anatomy-and-physiology"
-        },
-        {
-          "label": "Open Textbook Library – Anatomy & Physiology 2e",
-          "url": "https://open.umn.edu/opentextbooks/textbooks/anatomy-and-physiology"
-        }
-      ]
+      "sources": [{"label": "OpenStax Anatomy & Physiology 2e", "url": "https://openstax.org/subjects/anatomy-and-physiology"}, {"label": "Open Textbook Library – Anatomy & Physiology 2e", "url": "https://open.umn.edu/opentextbooks/textbooks/anatomy-and-physiology"}]
     },
     {
       "id": "academic-nursing-safety",
-      "category": "academic",
+      "category": "health-science",
       "title": "Nursing Foundations: Safety, Evidence and Patient-Centred Care",
-      "keywords": [
-        "nursing",
-        "patient safety",
-        "infection prevention",
-        "clinical practice",
-        "evidence",
-        "care",
-        "assessment",
-        "communication"
-      ],
+      "keywords": ["nursing", "patient safety", "infection prevention", "clinical practice", "evidence", "care", "assessment", "communication"],
       "content": "Safe nursing practice begins with patient identification, clear communication, hand hygiene, infection prevention, accurate documentation, respect for dignity and privacy, and timely escalation when a patient deteriorates. Clinical decisions should use current evidence, the patient's assessment findings, applicable professional standards and local facility protocols. Educational explanations must not be treated as patient-specific orders. Never invent drug doses, diagnoses, procedures or institutional policy. If a clinical situation is urgent, direct the user to qualified clinicians and emergency services rather than relying on an AI response.",
-      "sources": [
-        {
-          "label": "WHO – Patient Safety",
-          "url": "https://www.who.int/health-topics/patient-safety"
-        },
-        {
-          "label": "WHO – Infection Prevention and Control",
-          "url": "https://www.who.int/health-topics/infection-prevention-and-control"
-        }
-      ]
+      "sources": [{"label": "WHO – Patient Safety", "url": "https://www.who.int/health-topics/patient-safety"}, {"label": "WHO – Infection Prevention and Control", "url": "https://www.who.int/health-topics/infection-prevention-and-control"}]
     },
     {
       "id": "research-source-literacy",
       "category": "research",
       "title": "Research Literacy and Source Evaluation",
-      "keywords": [
-        "research",
-        "sources",
-        "evidence",
-        "citations",
-        "academic writing",
-        "fact checking",
-        "publication date",
-        "study",
-        "literature review"
-      ],
-      "content": "Evaluate a source by authority, relevance, currency, evidence quality, transparency and purpose. Prefer primary research for specific study findings, systematic reviews for synthesis, and authoritative agencies for public-health or regulatory guidance. Check the publication date and whether the page has been updated; distinguish the date an event occurred from the date an article was published. Follow references to the underlying report or study where possible. Compare independent sources, identify limitations and conflicts of interest, and avoid treating search-result snippets as sufficient evidence. Clearly separate sourced facts, interpretation and recommendations. If evidence is unavailable or conflicting, say so rather than filling gaps with speculation.",
-      "sources": [
-        {
-          "label": "WHO – Resources and evidence-based health information",
-          "url": "https://www.who.int/resources"
-        },
-        {
-          "label": "WHO – Fact sheets",
-          "url": "https://www.who.int/news-room/fact-sheets"
-        }
-      ]
+      "keywords": ["research", "sources", "evidence", "citations", "academic writing", "fact checking", "publication date", "study", "literature review"],
+      "content": "Evaluate a source by authority, relevance, currency, evidence quality, transparency and purpose. Prefer primary research for specific study findings, systematic reviews for synthesis, and authoritative agencies for public-health or regulatory guidance. Check publication dates and follow references to underlying reports or studies. Compare independent sources, identify limitations and conflicts of interest, and avoid treating search-result snippets as sufficient evidence. Clearly separate sourced facts, interpretation and recommendations. If evidence is unavailable or conflicting, say so rather than filling gaps with speculation.",
+      "sources": [{"label": "WHO – Resources", "url": "https://www.who.int/resources"}, {"label": "Purdue OWL – Research and Citation", "url": "https://owl.purdue.edu/owl/research_and_citation/resources.html"}]
     },
     {
       "id": "uganda-higher-education",
       "category": "uganda-education",
       "title": "Uganda Higher-Education Verification Guide",
-      "keywords": [
-        "uganda",
-        "higher education",
-        "university",
-        "accreditation",
-        "licensed institution",
-        "programme",
-        "NCHE",
-        "National Council for Higher Education",
-        "admissions"
-      ],
-      "content": "For questions about whether a Ugandan higher-education institution is licensed, or whether a programme is accredited or recognised, verify against the National Council for Higher Education (NCHE) official website and the relevant institution or programme record. Do not infer that an institution's licence automatically proves that every programme, campus, intake or delivery mode is approved. Record the exact institution name, programme title, award, campus, status and date checked. Because registers and regulatory decisions can change, this library entry is a verification procedure, not a current accreditation determination. Use the official register and notices for the latest position.",
-      "sources": [
-        {
-          "label": "NCHE – Licensed Institutions",
-          "url": "https://unche.or.ug/institutions/"
-        },
-        {
-          "label": "NCHE official website",
-          "url": "https://unche.or.ug/"
-        }
-      ]
+      "keywords": ["uganda", "higher education", "university", "accreditation", "licensed institution", "programme", "NCHE", "National Council for Higher Education", "admissions"],
+      "content": "For questions about whether a Ugandan higher-education institution is licensed, or whether a programme is accredited or recognised, verify against the National Council for Higher Education (NCHE) official website and the relevant institution or programme record. Do not infer that an institution's licence automatically proves that every programme, campus, intake or delivery mode is approved. Record the exact institution name, programme title, award, campus, status and date checked. This is a verification procedure, not a current accreditation determination.",
+      "sources": [{"label": "NCHE – Licensed Institutions", "url": "https://unche.or.ug/institutions/"}, {"label": "NCHE official website", "url": "https://unche.or.ug/"}]
     },
     {
       "id": "programming-web-fundamentals",
-      "category": "programming",
-      "title": "Web Development and JavaScript Fundamentals",
-      "keywords": [
-        "programming",
-        "javascript",
-        "typescript",
-        "web development",
-        "frontend",
-        "backend",
-        "html",
-        "css",
-        "react",
-        "node",
-        "api"
-      ],
-      "content": "A web application commonly has a client interface, a server/API layer and optional persistent storage. The browser should not contain private API keys or privileged credentials; keep secrets on the server and expose only the minimum required endpoints. Validate incoming data on the server, enforce authentication and authorisation where needed, apply rate limits, handle errors explicitly and avoid logging secrets or personal data. JavaScript supports asynchronous operations such as promises and async/await; handle rejected promises and network failures. Use version control, small changes, automated checks and staged deployments. Never claim code was tested unless the test actually ran.",
-      "sources": [
-        {
-          "label": "MDN JavaScript Guide",
-          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide"
-        },
-        {
-          "label": "Node.js Learn",
-          "url": "https://nodejs.org/learn"
-        }
-      ]
+      "category": "technology",
+      "title": "Programming and Web Development Fundamentals",
+      "keywords": ["programming", "javascript", "typescript", "python", "web development", "frontend", "backend", "html", "css", "react", "node", "api", "software", "coding"],
+      "content": "Software systems are built from components with defined responsibilities, interfaces and data flows. Web applications commonly have a client interface, a server/API layer and optional persistent storage. Keep private API keys on the server, validate input, enforce authentication and authorisation, apply rate limits and handle errors explicitly. JavaScript and Python support asynchronous or modular programming patterns; use version control, small changes, automated tests and staged deployments. Explain concepts at the user's level, provide runnable examples when appropriate, and never claim code was tested unless the test actually ran.",
+      "sources": [{"label": "MDN Web Development", "url": "https://developer.mozilla.org/en-US/docs/Learn_web_development"}, {"label": "Python Tutorial", "url": "https://docs.python.org/3/tutorial/"}, {"label": "Node.js Learn", "url": "https://nodejs.org/learn"}]
+    },
+    {
+      "id": "digital-literacy-cybersecurity",
+      "category": "technology",
+      "title": "Digital Literacy, Privacy and Cybersecurity",
+      "keywords": ["digital literacy", "cybersecurity", "privacy", "password", "phishing", "scam", "account security", "data protection", "internet safety", "encryption"],
+      "content": "Digital literacy includes evaluating online information, protecting accounts, understanding permissions and recognising manipulation. Use unique passwords with a reputable password manager, enable multifactor authentication, install updates, verify links and sender identities, and avoid sharing one-time codes or secrets. Collect and retain only the personal data needed for a clear purpose. Treat unexpected payment requests, urgent threats and too-good-to-be-true offers as warning signs. Security advice should be practical and proportionate; never request a user's password or private authentication token.",
+      "sources": [{"label": "CISA – Secure Our World", "url": "https://www.cisa.gov/secure-our-world"}, {"label": "Google Safety Center", "url": "https://safety.google/"}]
     },
     {
       "id": "business-planning",
       "category": "business",
       "title": "Business Planning and Decision Fundamentals",
-      "keywords": [
-        "business",
-        "strategy",
-        "marketing",
-        "customer",
-        "budget",
-        "revenue",
-        "cost",
-        "planning",
-        "entrepreneurship",
-        "finance"
-      ],
-      "content": "A practical business plan identifies a specific customer problem, target segment, proposed value, delivery model, revenue assumptions, costs, competitors, risks and measurable milestones. Separate assumptions from verified facts. Test demand with low-cost experiments before making large commitments. Track cash flow separately from accounting profit; include fixed and variable costs, working capital and a realistic contingency. Marketing should define an audience, a clear offer, credible evidence, a channel and a measurable call to action. Avoid guaranteeing income or presenting forecasts as certain outcomes.",
-      "sources": [
-        {
-          "label": "U.S. Small Business Administration – Plan your business",
-          "url": "https://www.sba.gov/business-guide/plan-your-business"
-        }
-      ]
+      "keywords": ["business", "strategy", "marketing", "customer", "budget", "revenue", "cost", "planning", "entrepreneurship", "finance", "startup"],
+      "content": "A practical business plan identifies a customer problem, target segment, value proposition, delivery model, revenue assumptions, costs, competitors, risks and measurable milestones. Separate assumptions from verified facts. Test demand with low-cost experiments before making large commitments. Track cash flow separately from accounting profit; include fixed and variable costs, working capital and contingency. Marketing should define an audience, credible offer, channel and measurable call to action. Avoid guaranteeing income or presenting forecasts as certain outcomes.",
+      "sources": [{"label": "U.S. Small Business Administration – Plan your business", "url": "https://www.sba.gov/business-guide/plan-your-business"}]
+    },
+    {
+      "id": "personal-finance",
+      "category": "finance",
+      "title": "Personal Finance and Financial Literacy",
+      "keywords": ["personal finance", "saving", "budget", "debt", "interest", "investment", "compound interest", "financial literacy", "risk", "money"],
+      "content": "Financial literacy involves budgeting, saving, understanding borrowing costs, managing risk and distinguishing needs from wants. A budget compares income with essential expenses, flexible spending, debt obligations and savings goals. Compound interest means returns or costs can build on previous balances over time. Investments involve risk, and higher promised returns generally require careful scrutiny. Compare fees, liquidity, time horizon and the possibility of loss. Do not promise profits or give personalised regulated financial advice; explain assumptions and encourage independent verification.",
+      "sources": [{"label": "Investor.gov – Introduction to Investing", "url": "https://www.investor.gov/introduction-investing"}, {"label": "Consumer Financial Protection Bureau – Money topics", "url": "https://www.consumerfinance.gov/consumer-tools/"}]
+    },
+    {
+      "id": "economics-foundations",
+      "category": "economics",
+      "title": "Economics: Core Concepts",
+      "keywords": ["economics", "microeconomics", "macroeconomics", "inflation", "unemployment", "supply", "demand", "GDP", "markets", "opportunity cost"],
+      "content": "Economics studies how people and societies allocate scarce resources. Opportunity cost is the value of the next-best alternative forgone. In a basic market model, demand describes quantities buyers are willing and able to purchase at different prices, while supply describes quantities sellers are willing and able to offer. Macroeconomics examines economy-wide measures such as output, inflation and unemployment. Distinguish a model's assumptions from real-world conditions, and use current official statistics for claims about present economic conditions.",
+      "sources": [{"label": "CORE Econ – The Economy", "url": "https://www.core-econ.org/the-economy/"}]
+    },
+    {
+      "id": "science-mathematics",
+      "category": "science",
+      "title": "General Science and Mathematical Reasoning",
+      "keywords": ["science", "biology", "chemistry", "physics", "mathematics", "algebra", "statistics", "probability", "measurement", "scientific method"],
+      "content": "Scientific reasoning starts with a clear question, operational definitions, observations or measurements, testable explanations and methods that others can evaluate. Correlation alone does not establish causation. In mathematics, show assumptions, units and intermediate steps; check whether the answer is reasonable and whether rounding is appropriate. In statistics, distinguish population from sample, describe uncertainty and avoid interpreting a p-value as the probability that a hypothesis is true. Adapt explanations and worked examples to the learner's current level.",
+      "sources": [{"label": "Khan Academy", "url": "https://www.khanacademy.org/"}, {"label": "OpenStax – Free textbooks", "url": "https://openstax.org/subjects"}]
+    },
+    {
+      "id": "society-history-civics",
+      "category": "humanities",
+      "title": "History, Geography and Civic Literacy",
+      "keywords": ["history", "geography", "civics", "government", "politics", "society", "culture", "constitution", "human rights", "Uganda history"],
+      "content": "History examines change over time using evidence such as documents, material records and oral testimony. Consider who created a source, when, for what purpose and whose perspectives may be missing. Geography explores places, environments, populations and spatial relationships. Civic literacy includes understanding institutions, rights, responsibilities and public decision-making. Explain contested events with context and distinguish established evidence from interpretation. For current laws, officeholders or government policies, check authoritative and up-to-date sources.",
+      "sources": [{"label": "UNESCO", "url": "https://www.unesco.org/en"}, {"label": "United Nations – Global issues", "url": "https://www.un.org/en/global-issues"}]
+    },
+    {
+      "id": "environment-agriculture",
+      "category": "environment",
+      "title": "Environment, Climate and Agriculture",
+      "keywords": ["environment", "climate", "climate change", "agriculture", "farming", "soil", "water", "biodiversity", "sustainability", "food systems"],
+      "content": "Environmental systems connect climate, land, water, biodiversity and human activity. Sustainable agriculture considers soil health, water management, crop suitability, pest management, biodiversity and long-term productivity. Climate claims should distinguish weather from climate and use measured evidence over appropriate time periods. Practical farming recommendations depend on local soils, rainfall, crop variety, pests and available resources; seek local agricultural extension guidance for site-specific decisions.",
+      "sources": [{"label": "FAO", "url": "https://www.fao.org/home/en"}, {"label": "IPCC", "url": "https://www.ipcc.ch/"}]
     },
     {
       "id": "professional-writing",
-      "category": "writing",
+      "category": "communication",
       "title": "Professional Communication and Document Writing",
-      "keywords": [
-        "writing",
-        "email",
-        "letter",
-        "report",
-        "proposal",
-        "cv",
-        "resume",
-        "professional",
-        "social media",
-        "communication"
-      ],
-      "content": "Effective professional writing starts with the reader and the desired outcome. Put the main purpose early, use specific factual language, organise supporting details logically and make the requested action clear. Match tone to audience and channel. Verify names, dates, figures, titles and contact details before sending. Do not invent qualifications, institutional approvals, statistics or endorsements. For formal letters, include a clear subject, respectful salutation, concise context, specific request and appropriate closing. For social posts, make the offer and next step clear without exaggeration.",
-      "sources": [
-        {
-          "label": "Purdue OWL – Professional, Technical Writing",
-          "url": "https://owl.purdue.edu/owl/subject_specific_writing/professional_technical_writing/index.html"
-        }
-      ]
+      "keywords": ["writing", "email", "letter", "report", "proposal", "cv", "resume", "professional", "social media", "communication"],
+      "content": "Effective professional writing starts with the reader and the desired outcome. Put the main purpose early, use specific factual language, organise supporting details logically and make the requested action clear. Match tone to audience and channel. Verify names, dates, figures, titles and contact details. Do not invent qualifications, approvals, statistics or endorsements. For formal letters, include a clear subject, respectful salutation, concise context, specific request and appropriate closing.",
+      "sources": [{"label": "Purdue OWL – Professional and Technical Writing", "url": "https://owl.purdue.edu/owl/subject_specific_writing/professional_technical_writing/index.html"}]
+    },
+    {
+      "id": "creative-media",
+      "category": "creativity",
+      "title": "Creative Thinking, Storytelling and Media",
+      "keywords": ["creativity", "creative writing", "storytelling", "design", "branding", "content creation", "video", "script", "poetry", "ideas"],
+      "content": "Creative work begins by identifying the audience, purpose, format, constraints and desired emotional or practical effect. Strong storytelling uses a clear premise, purposeful structure, specific details and a consistent voice. For marketing and media, align the message, visual identity and call to action with the audience while avoiding misleading claims. When adapting an existing work, respect copyright and distinguish original material from quotation or inspiration. Offer alternatives and explain trade-offs when a brief is open-ended.",
+      "sources": [{"label": "Creative Commons – About CC licenses", "url": "https://creativecommons.org/share-your-work/cclicenses/"}]
+    },
+    {
+      "id": "learning-productivity-career",
+      "category": "productivity",
+      "title": "Learning Skills, Productivity and Career Development",
+      "keywords": ["learning", "study skills", "revision", "productivity", "time management", "career", "interview", "job application", "goals", "planning"],
+      "content": "Effective learning uses active recall, spaced practice, worked examples, feedback and deliberate attention to weak areas. Break large goals into specific tasks with realistic time estimates and review progress regularly. Career materials should present verifiable achievements, relevant skills and clear evidence of impact; tailor applications to the role without fabricating experience. For planning, identify the next actionable step and account for the user's available time, resources and constraints.",
+      "sources": [{"label": "The Learning Scientists", "url": "https://www.learningscientists.org/"}, {"label": "National Careers Service – Skills assessment", "url": "https://nationalcareers.service.gov.uk/"}]
+    },
+    {
+      "id": "psychology-social-science",
+      "category": "social-science",
+      "title": "Psychology and Social Science Foundations",
+      "keywords": ["psychology", "sociology", "human behaviour", "mental processes", "social science", "development", "motivation", "relationships", "culture"],
+      "content": "Psychology studies behaviour and mental processes, while social sciences examine people, groups, institutions and societies. Human behaviour is influenced by interacting biological, cognitive, social and environmental factors. Research findings describe patterns in groups and do not automatically determine what is true for an individual. Avoid diagnosing people from brief descriptions. Explain concepts carefully, recognise cultural context and encourage qualified support when a person describes serious distress or immediate danger.",
+      "sources": [{"label": "American Psychological Association – Topics", "url": "https://www.apa.org/topics"}]
+    },
+    {
+      "id": "research-fact-checking",
+      "category": "research",
+      "title": "Fact-Checking and Responsible Use of Sources",
+      "keywords": ["fact check", "verify", "citation", "source", "official source", "misinformation", "news", "evidence", "research methods"],
+      "content": "For factual questions, identify the exact claim and the evidence needed to verify it. Prefer original records, official datasets, legislation, institutional notices and peer-reviewed research where appropriate. Check dates, definitions, geographic scope and whether a source directly supports the claim. Use multiple independent sources for consequential claims. Cite sources close to the statements they support, report uncertainty and never invent a citation or imply that a source was opened when it was not.",
+      "sources": [{"label": "Reuters – Trust Principles", "url": "https://www.reuters.com/about/"}]
     }
   ]
 }
