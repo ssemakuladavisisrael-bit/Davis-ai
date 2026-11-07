@@ -397,6 +397,8 @@ app.post('/api/chat/sync', chatRateLimit, async (req, res) => {
   }
 
   const { messages, systemInstruction, temperature, model: requestedModel } = req.body;
+  const knowledgeContext = await retrieveKnowledgeContext(messages);
+  const effectiveSystemInstruction = (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) + knowledgeContext;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required.' });
