@@ -120,3 +120,29 @@ The server must have a working `GEMINI_API_KEY` with access to Veo 3.1. Video ge
 `Prompt → Gemini storyboard → Veo 3.1 realistic generation → Veo extension for longer duration → MP4 preview/download`
 
 The browser never receives `GEMINI_API_KEY`.
+
+## 🧠 Davis Verification Mode & Meridian Benchmark
+
+The chat header includes an optional **Verify** mode. When enabled, Davis AI:
+1. Generates an initial answer using the selected Gemini model.
+2. Sends that draft through a separate adversarial review pass.
+3. Returns the reviewed answer in the existing chat stream.
+
+Verification mode is opt-in because it makes an additional Gemini generation request and may increase latency and API usage. It is a review aid, not a guarantee of correctness. It does not claim to execute code in the live chat path.
+
+### Local Meridian evaluation
+
+The repository includes:
+- `davis_harness.py` — local Gemini-connected benchmark runner, tool loop, grader and Brier calibration metric.
+- `meridian_variants.json` — the 10 supplied Meridian cases, with the held-out cases kept separate.
+
+Set `GEMINI_API_KEY` in your terminal environment, then run:
+
+```bash
+python davis_harness.py
+python davis_harness.py --split train
+python davis_harness.py --split all
+```
+
+You can select another Gemini model with `DAVIS_MODEL`. The harness runs model-requested Python locally with a timeout. This is **not a hardened sandbox**; use it only for trusted local benchmark runs, never as a public server-side code execution endpoint. Keep API keys out of source control.
+
