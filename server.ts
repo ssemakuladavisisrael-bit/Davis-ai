@@ -329,7 +329,7 @@ Do not award points for style when the mathematics is wrong. If no answer key is
           },
         });
         const judgeText = (judgeResponse.text || '').trim();
-        let judge;
+        let judge: any;
         try { judge = JSON.parse(judgeText); } catch { judge = null; }
         const finalText = judge
           ? reviewed + '\n\n---\n### Davis Omega independent assessment\n' +
