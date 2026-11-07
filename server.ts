@@ -161,10 +161,15 @@ app.post('/api/video/analyze', express.raw({ type: 'video/mp4', limit: '100mb' }
       config: { mimeType: 'video/mp4' },
     });
 
+    const uploadedFileName = videoFile.name;
+    if (typeof uploadedFileName !== 'string' || !uploadedFileName) {
+      throw new Error('Gemini did not return a valid uploaded video file name.');
+    }
+
     let attempts = 0;
     while (videoFile.state?.toString() === 'PROCESSING' && attempts < 30) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      videoFile = await ai.files.get({ name: videoFile.name });
+      videoFile = await ai.files.get({ name: uploadedFileName });
       attempts++;
     }
 

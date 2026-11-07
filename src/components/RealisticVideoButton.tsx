@@ -91,7 +91,13 @@ export function RealisticVideoButton({ prompt }: Props) {
       if (result !== 0) throw new Error('The scenes were generated, but this browser could not join them. Try a desktop Chrome browser with more available memory.');
 
       const output = await ffmpeg.readFile('complete.mp4');
-      const videoBlob = new Blob([output as Uint8Array], { type: 'video/mp4' });
+      if (typeof output === 'string') {
+        throw new Error('The video processor returned text instead of binary MP4 data.');
+      }
+      // Copy into a plain ArrayBuffer so BlobPart never receives SharedArrayBuffer-backed bytes.
+      const videoBuffer = new ArrayBuffer(output.byteLength);
+      new Uint8Array(videoBuffer).set(output);
+      const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
       if (videoBlob.size < 1000) throw new Error('The finished video file was empty.');
       setUrl(URL.createObjectURL(videoBlob));
       setDone(true);
