@@ -663,11 +663,11 @@ Guidelines:
               type="button"
               onClick={() => setReasoningMode((v) => !v)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${reasoningMode ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-              title="Run a draft and an independent adversarial verification pass"
+              title="Run the Universal Pipeline: plan, independent solutions, verification, revision and grading"
               aria-pressed={reasoningMode}
             >
               <Brain className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{reasoningMode ? 'Verify On' : 'Verify'}</span>
+              <span className="hidden sm:inline">{reasoningMode ? 'Omega On' : 'Omega'}</span>
             </button>
 
             {/* Quick Model Selector Pill */}
@@ -809,7 +809,7 @@ Guidelines:
         {reasoningMode && (
           <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
             <Brain className="w-4 h-4 shrink-0" />
-            <span><strong>Verification mode:</strong> Davis AI drafts an answer, then runs a separate adversarial review before replying. This uses additional Gemini requests.</span>
+            <span><strong>Universal Omega:</strong> Davis AI classifies and plans the task, generates independent solutions, uses managed code execution for calculations, searches when current facts are needed, critiques and revises the answer, then independently grades confidence. This uses several Gemini requests and may take longer.</span>
           </div>
         )}
 
