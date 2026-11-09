@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile, unlink } from 'fs/promises';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
+import { classifyGeminiError } from './server/ai-errors';
 
 dotenv.config();
 
@@ -60,33 +61,8 @@ const AVAILABLE_MODELS = [
 ];
 
 // Helper to extract a friendly error message from Gemini API errors
-function formatGeminiError(error: any): string {
-  if (!error) return 'An unexpected error occurred.';
-  let msg = error.message || String(error);
-
-  try {
-    if (typeof msg === 'string' && (msg.includes('{"error"') || msg.startsWith('{'))) {
-      const parsed = JSON.parse(msg);
-      if (parsed.error?.message) {
-        msg = parsed.error.message;
-        if (typeof msg === 'string' && msg.includes('{"error"')) {
-          const inner = JSON.parse(msg);
-          if (inner.error?.message) msg = inner.error.message;
-        }
-      }
-    }
-  } catch {}
-
-  if (typeof msg === 'string') {
-    if (msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('unavailable')) {
-      return 'Davis AI is currently experiencing high demand. Automatic failover active.';
-    }
-    if (msg.toLowerCase().includes('api_key') || msg.toLowerCase().includes('api key')) {
-      return 'Invalid or missing Gemini API key. Please check your key in the AI Studio Secrets panel.';
-    }
-  }
-
-  return typeof msg === 'string' ? msg : 'Failed to communicate with Davis AI.';
+function formatGeminiError(error: unknown): string {
+  return classifyGeminiError(error).message;
 }
 
 // Format and sanitize messages for Gemini API
@@ -244,6 +220,8 @@ app.post('/api/chat', async (req, res) => {
   const fallbackModel = primaryModel === 'gemini-3.8-flash' ? 'gemini-3.1-flash-lite' : 'gemini-flash-latest';
 
   let streamedAnyChunk = false;
+  let lastProviderError: unknown = null;
+  let allowFallback = true;
 
   const tryStream = async (modelToUse: string): Promise<boolean> => {
     try {
@@ -413,6 +391,8 @@ app.post('/api/chat', async (req, res) => {
       res.end();
       return true;
     } catch (err: any) {
+      lastProviderError = err;
+      if (!classifyGeminiError(err).shouldFallback) allowFallback = false;
       console.warn(`Model ${modelToUse} failed:`, err?.message || err);
       // If we already sent chunks, we cannot silently switch models
       if (streamedAnyChunk) {
@@ -430,13 +410,20 @@ app.post('/api/chat', async (req, res) => {
     const success = await tryStream(primaryModel);
     if (success) return;
 
+    // Do not spend another request when the project quota or credentials are the blocker.
+    if (!allowFallback) {
+      res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\\n\\n`);
+      res.end();
+      return;
+    }
+
     // Attempt 2 with fallback model
     console.log(`Failing over to resilient model ${fallbackModel}...`);
     const fallbackSuccess = await tryStream(fallbackModel);
     if (fallbackSuccess) return;
 
-    // If both failed before streaming any chunk
-    res.write(`data: ${JSON.stringify({ error: 'Davis AI is temporarily experiencing high demand across model clusters. Please try again in a moment.' })}\n\n`);
+    // If both models fail, return the most useful classified provider error.
+    res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\\n\\n`);
     res.end();
   } catch (error: any) {
     console.error('Unhandled chat stream error:', error);
