@@ -256,14 +256,14 @@ app.post('/api/chat', async (req, res) => {
             failure_modes: ['Invented facts', 'Unsupported certainty', 'Missing assumptions'],
             missing_information: [],
             complexity: 'simple',
-            reasoning_required: false,
+            reasoning_required: true,
             needs_web_search: false,
           };
         }
 
         // Keep ordinary conversation fast. Escalate automatically when the planner detects
         // research needs or a task that benefits from multi-pass reasoning.
-        if (plan.reasoning_required !== true && plan.needs_web_search !== true) {
+        if (plan.reasoning_required === false && plan.needs_web_search === false) {
           const responseStream = await ai.models.generateContentStream({
             model: modelToUse,
             contents: formattedContents,
