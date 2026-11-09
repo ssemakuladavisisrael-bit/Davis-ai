@@ -412,7 +412,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Do not spend another request when the project quota or credentials are the blocker.
     if (!allowFallback) {
-      res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\\n\\n`);
+      res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\n\n`);
       res.end();
       return;
     }
@@ -423,7 +423,7 @@ app.post('/api/chat', async (req, res) => {
     if (fallbackSuccess) return;
 
     // If both models fail, return the most useful classified provider error.
-    res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\\n\\n`);
+    res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\n\n`);
     res.end();
   } catch (error: any) {
     console.error('Unhandled chat stream error:', error);
