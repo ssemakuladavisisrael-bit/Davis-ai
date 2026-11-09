@@ -582,36 +582,6 @@ Guidelines:
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Quick Model Selector Pill */}
-            <div className="hidden sm:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
-              <button
-                type="button"
-                onClick={() => setModel('gemini-3.1-flash-lite')}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
-                  model === 'gemini-3.1-flash-lite'
-                    ? 'bg-white text-indigo-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Ultra Fast Response (~0.8s)"
-              >
-                <Zap className="w-3 h-3 text-amber-500" />
-                <span>Fast Lite</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setModel('gemini-3.8-flash')}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1 text-[11px] ${
-                  model === 'gemini-3.8-flash'
-                    ? 'bg-white text-indigo-700 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Deep Reasoning"
-              >
-                <Brain className="w-3 h-3 text-indigo-600" />
-                <span className="hidden sm:inline">Reasoning 3.8</span>
-              </button>
-            </div>
-
             {!serverStatus?.hasApiKey && (
               <button
                 onClick={() => setIsHelpOpen(true)}
