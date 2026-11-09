@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile, unlink } from 'fs/promises';
 import { GoogleGenAI, GenerateVideosOperation } from '@google/genai';
+import { classifyGeminiError } from './server/ai-errors';
 
 dotenv.config();
 
@@ -60,33 +61,8 @@ const AVAILABLE_MODELS = [
 ];
 
 // Helper to extract a friendly error message from Gemini API errors
-function formatGeminiError(error: any): string {
-  if (!error) return 'An unexpected error occurred.';
-  let msg = error.message || String(error);
-
-  try {
-    if (typeof msg === 'string' && (msg.includes('{"error"') || msg.startsWith('{'))) {
-      const parsed = JSON.parse(msg);
-      if (parsed.error?.message) {
-        msg = parsed.error.message;
-        if (typeof msg === 'string' && msg.includes('{"error"')) {
-          const inner = JSON.parse(msg);
-          if (inner.error?.message) msg = inner.error.message;
-        }
-      }
-    }
-  } catch {}
-
-  if (typeof msg === 'string') {
-    if (msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('unavailable')) {
-      return 'Davis AI is currently experiencing high demand. Automatic failover active.';
-    }
-    if (msg.toLowerCase().includes('api_key') || msg.toLowerCase().includes('api key')) {
-      return 'Invalid or missing Gemini API key. Please check your key in the AI Studio Secrets panel.';
-    }
-  }
-
-  return typeof msg === 'string' ? msg : 'Failed to communicate with Davis AI.';
+function formatGeminiError(error: unknown): string {
+  return classifyGeminiError(error).message;
 }
 
 // Format and sanitize messages for Gemini API
@@ -210,7 +186,7 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  const { messages, systemInstruction, temperature, model: requestedModel, reasoningMode, omegaRubric, omegaAnswerKey } = req.body;
+  const { messages, systemInstruction, temperature, model: requestedModel, omegaRubric, omegaAnswerKey } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
@@ -244,19 +220,21 @@ app.post('/api/chat', async (req, res) => {
   const fallbackModel = primaryModel === 'gemini-3.8-flash' ? 'gemini-3.1-flash-lite' : 'gemini-flash-latest';
 
   let streamedAnyChunk = false;
+  let lastProviderError: unknown = null;
+  let allowFallback = true;
 
   const tryStream = async (modelToUse: string): Promise<boolean> => {
     try {
       // Davis Universal Pipeline + Omega: classify, plan, solve independently, compare,
       // critique/revise, then score. Model-generated code is executed only by Gemini's
       // managed codeExecution tool; this server never runs arbitrary generated Python.
-      if (reasoningMode === true) {
+      {
         const baseInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
         const plannerResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: formattedContents,
           config: {
-            systemInstruction: baseInstruction + "\n\nUNIVERSAL PLANNER: Classify the user's task and create a task-specific solution plan. Return strict JSON only with keys: task_type (math|code|fact|writing|decision|science|other), plan (string), rubric (array of 5-8 concrete grading criteria), failure_modes (array), missing_information (array), needs_web_search (boolean), search_query (string). Search only when facts are current, time-sensitive, or materially uncertain. Do not solve the task yet.",
+            systemInstruction: baseInstruction + "\n\nUNIVERSAL INTELLIGENCE ROUTER: Inspect the user's latest request in the context of the conversation. Decide the minimum capability needed. Return strict JSON only with keys: task_type (math|code|fact|writing|decision|science|other), complexity (simple|moderate|complex), reasoning_required (boolean), needs_web_search (boolean), search_query (string), plan (string), rubric (array of 5-8 concrete grading criteria), failure_modes (array), missing_information (array). Set reasoning_required=true whenever the user explicitly asks for Omega, deep reasoning, rigorous verification, or independent critique, and for multi-step, ambiguous, quantitative, scientific, high-stakes, adversarial, coding/debugging, or decision tasks that benefit from independent solutions and critique. Set needs_web_search=true for current, time-sensitive, changing, externally verifiable, or materially uncertain factual claims, and whenever the user asks to research or find sources. Do not search for stable facts or ordinary conversation. Do not solve the task yet.",
             temperature: 0.1,
             responseMimeType: 'application/json',
           },
@@ -277,8 +255,34 @@ app.post('/api/chat', async (req, res) => {
             rubric: ['Correctness', 'Completeness', 'Evidence and calculations', 'Clear assumptions', 'Calibrated conclusion'],
             failure_modes: ['Invented facts', 'Unsupported certainty', 'Missing assumptions'],
             missing_information: [],
+            complexity: 'simple',
+            reasoning_required: true,
             needs_web_search: false,
           };
+        }
+
+        // Keep ordinary conversation fast. Escalate automatically when the planner detects
+        // research needs or a task that benefits from multi-pass reasoning.
+        if (plan.reasoning_required === false && plan.needs_web_search === false) {
+          const responseStream = await ai.models.generateContentStream({
+            model: modelToUse,
+            contents: formattedContents,
+            config: {
+              systemInstruction: (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) +
+                '\n\nDAVIS AI RESPONSE STANDARD: Answer the user request directly. Check obvious factual and logical consistency before responding. Do not claim to have searched, tested, executed, or verified anything you did not actually do. If information is uncertain, say so.',
+              temperature: typeof temperature === 'number' ? temperature : 0.7,
+            },
+          });
+          for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+              streamedAnyChunk = true;
+              res.write(`data: ${JSON.stringify({ text })}\n\n`);
+            }
+          }
+          res.write('data: [DONE]\n\n');
+          res.end();
+          return true;
         }
 
         let webContext = '';
@@ -413,6 +417,8 @@ app.post('/api/chat', async (req, res) => {
       res.end();
       return true;
     } catch (err: any) {
+      lastProviderError = err;
+      if (!classifyGeminiError(err).shouldFallback) allowFallback = false;
       console.warn(`Model ${modelToUse} failed:`, err?.message || err);
       // If we already sent chunks, we cannot silently switch models
       if (streamedAnyChunk) {
@@ -430,13 +436,20 @@ app.post('/api/chat', async (req, res) => {
     const success = await tryStream(primaryModel);
     if (success) return;
 
+    // Do not spend another request when the project quota or credentials are the blocker.
+    if (!allowFallback) {
+      res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\n\n`);
+      res.end();
+      return;
+    }
+
     // Attempt 2 with fallback model
     console.log(`Failing over to resilient model ${fallbackModel}...`);
     const fallbackSuccess = await tryStream(fallbackModel);
     if (fallbackSuccess) return;
 
-    // If both failed before streaming any chunk
-    res.write(`data: ${JSON.stringify({ error: 'Davis AI is temporarily experiencing high demand across model clusters. Please try again in a moment.' })}\n\n`);
+    // If both models fail, return the most useful classified provider error.
+    res.write(`data: ${JSON.stringify({ error: formatGeminiError(lastProviderError) })}\n\n`);
     res.end();
   } catch (error: any) {
     console.error('Unhandled chat stream error:', error);
