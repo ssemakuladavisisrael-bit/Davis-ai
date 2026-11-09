@@ -79,8 +79,6 @@ export default function App() {
   const [videoStudioTopic, setVideoStudioTopic] = useState('');
   const [videoStudioConfig, setVideoStudioConfig] = useState<ImportedVideoConfig | undefined>(undefined);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
-  const [researchMode, setResearchMode] = useState(false);
-  const [reasoningMode, setReasoningMode] = useState(false);
 
   const openECDCourseworkVideo = () => {
     setVideoStudioConfig({
@@ -243,73 +241,9 @@ Guidelines:
   };
 
   // Real-time research mode. Uses Google Search grounding and keeps sources with the answer.
-  const handleResearchMessage = async (textToResearch: string) => {
-    if (!textToResearch.trim() || isStreaming) return;
-
-    let targetConvId = activeId;
-    let targetMessages: Message[] = [];
-    if (!targetConvId || !activeConversation) {
-      const newId = `conv-${Date.now()}`;
-      const newConv: Conversation = { id: newId, title: textToResearch.trim().slice(0, 32) + (textToResearch.trim().length > 32 ? '...' : ''), createdAt: Date.now(), updatedAt: Date.now(), messages: [] };
-      setConversations((prev) => [newConv, ...prev]);
-      setActiveId(newId);
-      targetConvId = newId;
-    } else {
-      targetMessages = [...activeConversation.messages];
-      if (activeConversation.messages.length === 0 || activeConversation.title === 'New Chat') {
-        handleRenameConversation(targetConvId, textToResearch.trim().slice(0, 32) + (textToResearch.trim().length > 32 ? '...' : ''));
-      }
-    }
-
-    const userMessage: Message = { id: `msg-${Date.now()}-user`, role: 'user', content: textToResearch.trim(), timestamp: Date.now() };
-    const assistantPlaceholderId = `msg-${Date.now()}-research`;
-    const assistantMessage: Message = { id: assistantPlaceholderId, role: 'assistant', content: '', timestamp: Date.now() };
-    const updatedMessages = [...targetMessages, userMessage, assistantMessage];
-    setConversations((prev) => prev.map((c) => c.id === targetConvId ? { ...c, messages: updatedMessages, updatedAt: Date.now() } : c));
-    setInput('');
-    setIsStreaming(true);
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const response = await fetch(apiUrl('/api/research'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: textToResearch.trim() }),
-        signal: abortControllerRef.current.signal,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `Research failed (HTTP ${response.status})`);
-
-      const sources = Array.isArray(data.sources) ? data.sources : [];
-      const sourceText = sources.length
-        ? `\\n\\n---\\n### Sources\\n${sources.map((s: any, i: number) => `${i + 1}. [${s.title || 'Source'}](${s.url})`).join('\\n')}`
-        : '';
-      const answer = (data.text || 'No research result was returned.') + sourceText;
-
-      setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
-        ...c,
-        messages: c.messages.map((m) => m.id === assistantPlaceholderId ? { ...m, content: answer } : m),
-        updatedAt: Date.now(),
-      } : c));
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
-        setConversations((prev) => prev.map((c) => c.id === targetConvId ? {
-          ...c,
-          messages: c.messages.map((m) => m.id === assistantPlaceholderId ? { ...m, content: err?.message || 'Research failed. Please try again.', isError: true } : m),
-        } : c));
-      }
-    } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  };
-
   // Main message send logic
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isStreaming) return;
-    if (researchMode) {
-      await handleResearchMessage(textToSend);
-      return;
-    }
 
     let targetConvId = activeId;
     let targetMessages: Message[] = [];
@@ -391,7 +325,6 @@ Guidelines:
           systemInstruction: getSystemInstruction(),
           temperature: tone === 'creative' ? 0.9 : tone === 'precise' ? 0.3 : 0.7,
           model,
-          reasoningMode,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -649,27 +582,6 @@ Guidelines:
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setResearchMode((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${researchMode ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
-              title="Research current information from the web with cited sources"
-            >
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{researchMode ? 'Research On' : 'Research'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setReasoningMode((v) => !v)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${reasoningMode ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'}`}
-              title="Run the Universal Pipeline: plan, independent solutions, verification, revision and grading"
-              aria-pressed={reasoningMode}
-            >
-              <Brain className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{reasoningMode ? 'Omega On' : 'Omega'}</span>
-            </button>
-
             {/* Quick Model Selector Pill */}
             <div className="hidden sm:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
               <button
@@ -804,20 +716,6 @@ Guidelines:
           >
             <ArrowDown className="w-4 h-4 text-indigo-600" />
           </button>
-        )}
-
-        {reasoningMode && (
-          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-            <Brain className="w-4 h-4 shrink-0" />
-            <span><strong>Universal Omega:</strong> Davis AI classifies and plans the task, generates independent solutions, uses managed code execution for calculations, searches when current facts are needed, critiques and revises the answer, then independently grades confidence. This uses several Gemini requests and may take longer.</span>
-          </div>
-        )}
-
-        {researchMode && (
-          <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-            <Globe2 className="w-4 h-4 shrink-0" />
-            <span><strong>Research mode:</strong> Davis AI will use current web information and include source links. Turn it off for normal chat.</span>
-          </div>
         )}
 
         {/* Chat Input Bar */}
