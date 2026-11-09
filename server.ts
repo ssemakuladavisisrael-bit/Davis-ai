@@ -269,7 +269,7 @@ app.post('/api/chat', async (req, res) => {
             contents: formattedContents,
             config: {
               systemInstruction: (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) +
-                '\n\nDAVIS AI RESPONSE STANDARD: Answer the user's actual request directly. Check obvious factual and logical consistency before responding. Do not claim to have searched, tested, executed, or verified anything you did not actually do. If information is uncertain, say so.',
+                '\n\nDAVIS AI RESPONSE STANDARD: Answer the user's request directly. Check obvious factual and logical consistency before responding. Do not claim to have searched, tested, executed, or verified anything you did not actually do. If information is uncertain, say so.',
               temperature: typeof temperature === 'number' ? temperature : 0.7,
             },
           });
