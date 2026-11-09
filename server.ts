@@ -186,7 +186,7 @@ app.post('/api/chat', async (req, res) => {
     return;
   }
 
-  const { messages, systemInstruction, temperature, model: requestedModel, reasoningMode, omegaRubric, omegaAnswerKey } = req.body;
+  const { messages, systemInstruction, temperature, model: requestedModel, omegaRubric, omegaAnswerKey } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required and cannot be empty.' });
@@ -228,13 +228,13 @@ app.post('/api/chat', async (req, res) => {
       // Davis Universal Pipeline + Omega: classify, plan, solve independently, compare,
       // critique/revise, then score. Model-generated code is executed only by Gemini's
       // managed codeExecution tool; this server never runs arbitrary generated Python.
-      if (reasoningMode === true) {
+      {
         const baseInstruction = systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
         const plannerResponse = await ai.models.generateContent({
           model: modelToUse,
           contents: formattedContents,
           config: {
-            systemInstruction: baseInstruction + "\n\nUNIVERSAL PLANNER: Classify the user's task and create a task-specific solution plan. Return strict JSON only with keys: task_type (math|code|fact|writing|decision|science|other), plan (string), rubric (array of 5-8 concrete grading criteria), failure_modes (array), missing_information (array), needs_web_search (boolean), search_query (string). Search only when facts are current, time-sensitive, or materially uncertain. Do not solve the task yet.",
+            systemInstruction: baseInstruction + "\n\nUNIVERSAL INTELLIGENCE ROUTER: Inspect the user's latest request in the context of the conversation. Decide the minimum capability needed. Return strict JSON only with keys: task_type (math|code|fact|writing|decision|science|other), complexity (simple|moderate|complex), reasoning_required (boolean), needs_web_search (boolean), search_query (string), plan (string), rubric (array of 5-8 concrete grading criteria), failure_modes (array), missing_information (array). Set reasoning_required=true for multi-step, ambiguous, quantitative, scientific, high-stakes, adversarial, coding/debugging, or decision tasks that benefit from independent solutions and critique. Set needs_web_search=true for current, time-sensitive, changing, externally verifiable, or materially uncertain factual claims, and whenever the user asks to research or find sources. Do not search for stable facts or ordinary conversation. Do not solve the task yet.",
             temperature: 0.1,
             responseMimeType: 'application/json',
           },
@@ -255,8 +255,34 @@ app.post('/api/chat', async (req, res) => {
             rubric: ['Correctness', 'Completeness', 'Evidence and calculations', 'Clear assumptions', 'Calibrated conclusion'],
             failure_modes: ['Invented facts', 'Unsupported certainty', 'Missing assumptions'],
             missing_information: [],
+            complexity: 'simple',
+            reasoning_required: false,
             needs_web_search: false,
           };
+        }
+
+        // Keep ordinary conversation fast. Escalate automatically when the planner detects
+        // research needs or a task that benefits from multi-pass reasoning.
+        if (plan.reasoning_required !== true && plan.needs_web_search !== true) {
+          const responseStream = await ai.models.generateContentStream({
+            model: modelToUse,
+            contents: formattedContents,
+            config: {
+              systemInstruction: (systemInstruction || DEFAULT_SYSTEM_INSTRUCTION) +
+                '\\n\\nDAVIS AI RESPONSE STANDARD: Answer the user's actual request directly. Check obvious factual and logical consistency before responding. Do not claim to have searched, tested, executed, or verified anything you did not actually do. If information is uncertain, say so.',
+              temperature: typeof temperature === 'number' ? temperature : 0.7,
+            },
+          });
+          for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+              streamedAnyChunk = true;
+              res.write(`data: ${JSON.stringify({ text })}\\n\\n`);
+            }
+          }
+          res.write('data: [DONE]\\n\\n');
+          res.end();
+          return true;
         }
 
         let webContext = '';
